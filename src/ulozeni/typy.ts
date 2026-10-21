@@ -1,0 +1,43 @@
+/** Výsledek kontroly nahraného PDF. */
+export interface KontrolaPdf {
+  /** Počet stran (0, když PDF nejde otevřít). */
+  stran: number;
+  /** PDF je zašifrované – nejde ho upravit (u ESD) nebo vůbec otevřít. */
+  sifrovany: boolean;
+  /** Šifrované tak, že bez hesla nejde ani otevřít. */
+  potrebujeHeslo: boolean;
+  /** PDF má digitální podpis – úpravou přestane platit. */
+  digitalnePodepsany: boolean;
+  /** Strany bez textové vrstvy (sken) – číslováno od 1. Na ty se použije OCR. */
+  stranyBezTextu: number[];
+  /** Srozumitelný popis chyby, když se PDF nepodařilo přečíst. */
+  chyba?: string;
+}
+
+/** Soubor uložený v prohlížeči. Samotná data jsou v samostatném úložišti (podle id). */
+export interface SouborInfo {
+  id: string;
+  nazev: string;
+  mime: string;
+  velikost: number;
+  kontrola?: KontrolaPdf;
+}
+
+export type KrokIntervence = 'nahrani' | 'dohledani' | 'schvalovani' | 'export';
+
+export interface Intervence {
+  id: string;
+  nazev: string;
+  vytvoreno: number;
+  /** Čas poslední změny – podle něj se po 30 dnech nečinnosti intervence smaže. */
+  upraveno: number;
+  /** Krok, na kterém uživatel naposledy byl. */
+  krok: KrokIntervence;
+  smlouva: SouborInfo | null;
+  esd: SouborInfo[];
+  /** Intervence od centrály: vložený text a/nebo soubory (PDF, obrázek, TXT, EML, DOCX). */
+  zprava: {
+    text: string;
+    soubory: SouborInfo[];
+  };
+}

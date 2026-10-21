@@ -1,0 +1,48 @@
+{
+  "name": "opravy-esd",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "start": "tsx server.ts",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "testovaci-data": "tsx scripts/testovaci-data.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "idb": "^8.0.4",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.61.0",
+    "mammoth": "^1.13.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
+    "postal-mime": "^4.0.11",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tesseract.js": "^7.0.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.23",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "playwright-core": "1.64.0",
+    "pngjs": "^7.0.0",
+    "@types/pngjs": "^6.0.5",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

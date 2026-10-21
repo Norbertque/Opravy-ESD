@@ -1,2 +1,15 @@
-.env
-.env.*
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+
+# Tajné údaje (Gemini klíč apod.) – nikdy do gitu
+.env*
+!.env.example
+
+# Výstupy testů
+test-vystupy/
+test-results/
+playwright-report/

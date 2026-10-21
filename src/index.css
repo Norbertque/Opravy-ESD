@@ -1,0 +1,35 @@
+@import 'tailwindcss';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  }
+}
+
+@layer components {
+  /* Tlačítka jsou velká, aby šla pohodlně ovládat i prstem (min. 44 px). */
+  .tlacitko {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .tlacitko-hlavni {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2 font-semibold text-white shadow-sm transition hover:bg-blue-800 active:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .tlacitko-nebezpecne {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 font-medium text-red-700 transition hover:bg-red-50 active:bg-red-100;
+  }
+  .tlacitko-ikona {
+    @apply inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 active:bg-slate-200;
+  }
+  .karta {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+  .pole {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200;
+  }
+}

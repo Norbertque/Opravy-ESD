@@ -1,0 +1,6 @@
+{
+  "name": "Opravy ESD",
+  "description": "Vyřízení intervence k smluvní dokumentaci: rozdělení intervence na body, dohledání správných údajů ve smlouvě, na Google Disku a na internetu, schválení a zakreslení oprav s podpisem do kopie PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

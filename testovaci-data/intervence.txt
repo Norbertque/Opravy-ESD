@@ -1,0 +1,15 @@
+Dobrý den,
+
+při kontrole smluvní dokumentace ke smlouvě č. 7712345678 (klient Jan Testovací) jsme zjistili tyto nedostatky:
+
+1. Datum narození klienta v dokumentaci neodpovídá smlouvě.
+2. V záznamu z jednání chybí číslo smlouvy.
+3. Na plné moci je uvedeno chybné získatelské číslo zprostředkovatelky.
+4. V záznamu z jednání je chybně uvedena adresa pobočky.
+5. Na plné moci chybí podpis klienta.
+
+Prosíme o opravu a zaslání opravené dokumentace.
+
+S pozdravem
+oddělení kontroly dokumentace
+Pojišťovna Vzorník a.s.
