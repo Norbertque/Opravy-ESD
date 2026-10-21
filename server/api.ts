@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { konfigurace } from '../konfigurace';
+import { routerDohledani } from './dohledani/route';
 import { rezim } from './rezim';
 
 /**
@@ -19,6 +20,8 @@ export function vytvorApi() {
       mockDisk: rezim.mockDisk,
     });
   });
+
+  api.use(routerDohledani());
 
   api.use((_req, res) => {
     res.status(404).json({ chyba: 'Neznámá adresa API.' });

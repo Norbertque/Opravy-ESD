@@ -33,6 +33,29 @@ export function over(podminka: unknown, zprava: string): asserts podminka {
   console.log(`  ✓ ${zprava}`);
 }
 
+/** Založí novou intervenci a nahraje soubory z testovaci-data/. Vrací adresu intervence. */
+export async function zalozIntervenci(
+  stranka: Page,
+  moznosti: { esd: string[]; text?: string; prilohy?: string[] },
+) {
+  await stranka.goto(`${ADRESA}/#/`);
+  await stranka.getByRole('button', { name: 'Nová intervence' }).click();
+  await stranka.waitForURL(/#\/intervence\//);
+  const vstupy = stranka.locator('input[type=file]');
+  await vstupy.nth(0).setInputFiles(path.join(DATA, 'smlouva.pdf'));
+  await vstupy.nth(1).setInputFiles(moznosti.esd.map((s) => path.join(DATA, s)));
+  if (moznosti.text !== undefined) await stranka.getByPlaceholder('Sem vložte text intervence').fill(moznosti.text);
+  if (moznosti.prilohy?.length) await vstupy.nth(2).setInputFiles(moznosti.prilohy.map((s) => path.join(DATA, s)));
+  const pokracovat = stranka.getByRole('button', { name: /Pokračovat k dohledání/ });
+  await stranka.waitForFunction(
+    () => [...document.querySelectorAll('button')].some((b) => b.textContent?.includes('Pokračovat k dohledání') && !b.disabled),
+    undefined,
+    { timeout: 30_000 },
+  );
+  await pokracovat.click();
+  return stranka.url();
+}
+
 /** Sleduje chyby v konzoli prohlížeče – test na konci ověří, že žádné nebyly. */
 export function hlidejChyby(stranka: Page) {
   const chyby: string[] = [];

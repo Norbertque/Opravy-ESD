@@ -1,3 +1,5 @@
+import type { KodChyby, VysledekDohledani } from '../sdilene/dohledani';
+
 /** Výsledek kontroly nahraného PDF. */
 export interface KontrolaPdf {
   /** Počet stran (0, když PDF nejde otevřít). */
@@ -40,4 +42,15 @@ export interface Intervence {
     text: string;
     soubory: SouborInfo[];
   };
+  /** Poslední dohledání (krok 2). */
+  dohledani?: StavDohledani;
+}
+
+export interface StavDohledani {
+  vysledek: VysledekDohledani | null;
+  /** Hlášky průběhu („Hledám na Disku: …"). */
+  prubeh: string[];
+  chyba: { kod: KodChyby; zprava: string } | null;
+  spusteno: number;
+  dokonceno: number | null;
 }

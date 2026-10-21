@@ -1,6 +1,7 @@
 import { Check, ChevronLeft, CloudAlert, Loader2 } from 'lucide-react';
 import type { Intervence, KrokIntervence } from '../ulozeni/typy';
 import { useIntervence } from '../ulozeni/useIntervence';
+import { KrokDohledani } from './KrokDohledani';
 import { KrokNahrani } from './KrokNahrani';
 import { NAZVY_KROKU } from './SeznamIntervenci';
 
@@ -81,11 +82,12 @@ export function DetailIntervence({ id }: { id: string }) {
       </div>
       <div className="min-h-0 flex-1">
         {intervence.krok === 'nahrani' && <KrokNahrani intervence={intervence} zmen={zmen} prejdiNa={prejdiNa} />}
-        {intervence.krok !== 'nahrani' && (
+        {intervence.krok === 'dohledani' && <KrokDohledani intervence={intervence} zmen={zmen} prejdiNa={prejdiNa} />}
+        {(intervence.krok === 'schvalovani' || intervence.krok === 'export') && (
           <div className="p-6">
             <p className="mb-4 text-slate-600">Tento krok se připravuje.</p>
-            <button className="tlacitko" onClick={() => prejdiNa('nahrani')}>
-              <ChevronLeft size={18} /> Zpět k nahrání
+            <button className="tlacitko" onClick={() => prejdiNa('dohledani')}>
+              <ChevronLeft size={18} /> Zpět k dohledání
             </button>
           </div>
         )}
