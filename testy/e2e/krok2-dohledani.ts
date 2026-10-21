@@ -23,7 +23,7 @@ async function overVysledek(stranka: Page, popis: string) {
   over(await stranka.getByText('→ 14. 5. 1983').count() === 1, `${popis}: datum narození ze smlouvy`);
   over(await stranka.getByText('→ 401243').count() === 1, `${popis}: získatelské číslo z Disku`);
   over(await stranka.getByText('→ Masarykova 123/45, 602 00 Brno').count() === 1, `${popis}: adresa pobočky z Disku`);
-  over(await stranka.getByText('Ruční úkol').count() === 1, `${popis}: jeden ruční úkol`);
+  over(await stranka.getByText('Ruční úkol', { exact: true }).count() === 1, `${popis}: jeden ruční úkol`);
 }
 
 const prohlizec = await spustProhlizec();

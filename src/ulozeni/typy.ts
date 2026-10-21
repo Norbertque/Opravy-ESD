@@ -1,3 +1,5 @@
+import type { Usek } from '../pdf/hledani';
+import type { UmisteniVyskytu } from '../schvalovani/umisteni';
 import type { KodChyby, VysledekDohledani } from '../sdilene/dohledani';
 
 /** Výsledek kontroly nahraného PDF. */
@@ -44,6 +46,8 @@ export interface Intervence {
   };
   /** Poslední dohledání (krok 2). */
   dohledani?: StavDohledani;
+  /** Schvalování oprav (krok 3). */
+  schvalovani?: StavSchvalovani;
 }
 
 export interface StavDohledani {
@@ -53,4 +57,32 @@ export interface StavDohledani {
   chyba: { kod: KodChyby; zprava: string } | null;
   spusteno: number;
   dokonceno: number | null;
+}
+
+export interface RozhodnutiBodu {
+  rozhodnuti: 'ceka' | 'schvaleno' | 'zamitnuto';
+  /** Oprava – návrh z dohledání, případně upravený uživatelem. */
+  oprava: string;
+  /** Místa v PDF – stejné pořadí jako výskyty v dohledání. */
+  vyskyty: UmisteniVyskytu[];
+}
+
+/** Oprava, kterou uživatel přidal sám (označením místa v náhledu). */
+export interface RucniOprava {
+  id: string;
+  souborId: string;
+  strana: number;
+  typ: 'oprava' | 'doplneni';
+  useky: Usek[];
+  oprava: string;
+}
+
+export interface StavSchvalovani {
+  /** Ke kterému dohledání patří (čas dokončení). Po novém dohledání se schvalování založí znovu. */
+  dohledaniZ: number;
+  /** Podle čísla bodu. */
+  body: Record<number, RozhodnutiBodu>;
+  rucni: RucniOprava[];
+  /** Čísla ručních úkolů označených jako hotové. */
+  hotoveUkoly: number[];
 }

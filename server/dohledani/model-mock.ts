@@ -6,6 +6,7 @@
  *
  * Pro test chybových hlášek: značka #TEST-429-<cokoli> nebo #TEST-TIMEOUT-<cokoli>
  * v textu intervence vyvolá příslušnou chybu, ale jen poprvé (Zkusit znovu projde).
+ * Značka #TEST-NENALEZENO změní bod 3 tak, že se jeho text v PDF nenajde.
  */
 import { HLASKY, ChybaModelu, type KrokModelu, type ModelKlient, type VysledekNastroje } from './model';
 import type { Blok } from './vstupy';
@@ -148,7 +149,14 @@ function vysledekTestovacichDokumentu(r: Relace) {
         bod_intervence: 'Na plné moci je uvedeno chybné získatelské číslo zprostředkovatelky.',
         typ: 'oprava',
         vyskyty: [
-          { soubor: plnaMoc, strana: 1, presny_text: '401234', kontext_pred: 'Vzorník a.s., získatelské číslo', kontext_za: '' },
+          {
+            soubor: plnaMoc,
+            strana: 1,
+            // #TEST-NENALEZENO: text, který v PDF není → uživatel vybírá místo ručně
+            presny_text: r.intervence.includes('#TEST-NENALEZENO') ? '401299' : '401234',
+            kontext_pred: 'Vzorník a.s., získatelské číslo',
+            kontext_za: '',
+          },
         ],
         oprava: '401243',
         zdroj_typ: 'disk',

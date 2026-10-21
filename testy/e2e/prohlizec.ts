@@ -61,6 +61,7 @@ export function hlidejChyby(stranka: Page) {
   const chyby: string[] = [];
   stranka.on('pageerror', (e) => chyby.push(`pageerror: ${e.message}`));
   stranka.on('console', (zprava) => {
+    if (process.env.LADENI) console.log('[prohlížeč]', zprava.type(), zprava.text());
     if (zprava.type() === 'error') chyby.push(`console: ${zprava.text()}`);
   });
   return chyby;

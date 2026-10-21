@@ -3,6 +3,7 @@ import type { Intervence, KrokIntervence } from '../ulozeni/typy';
 import { useIntervence } from '../ulozeni/useIntervence';
 import { KrokDohledani } from './KrokDohledani';
 import { KrokNahrani } from './KrokNahrani';
+import { KrokSchvalovani } from './KrokSchvalovani';
 import { NAZVY_KROKU } from './SeznamIntervenci';
 
 const KROKY: KrokIntervence[] = ['nahrani', 'dohledani', 'schvalovani', 'export'];
@@ -83,11 +84,12 @@ export function DetailIntervence({ id }: { id: string }) {
       <div className="min-h-0 flex-1">
         {intervence.krok === 'nahrani' && <KrokNahrani intervence={intervence} zmen={zmen} prejdiNa={prejdiNa} />}
         {intervence.krok === 'dohledani' && <KrokDohledani intervence={intervence} zmen={zmen} prejdiNa={prejdiNa} />}
-        {(intervence.krok === 'schvalovani' || intervence.krok === 'export') && (
+        {intervence.krok === 'schvalovani' && <KrokSchvalovani intervence={intervence} zmen={zmen} prejdiNa={prejdiNa} />}
+        {intervence.krok === 'export' && (
           <div className="p-6">
             <p className="mb-4 text-slate-600">Tento krok se připravuje.</p>
-            <button className="tlacitko" onClick={() => prejdiNa('dohledani')}>
-              <ChevronLeft size={18} /> Zpět k dohledání
+            <button className="tlacitko" onClick={() => prejdiNa('schvalovani')}>
+              <ChevronLeft size={18} /> Zpět ke schvalování
             </button>
           </div>
         )}
