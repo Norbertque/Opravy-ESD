@@ -41,6 +41,15 @@ async function startServer() {
       },
       appType: 'spa',
     });
+    // Serverové soubory, skripty a testy nejsou pro prohlížeč – při pre-warmingu v AI Studiu
+    // by v nich jinak Vite přebalovalo serverové/nativní balíčky (@napi-rs/canvas, express, playwright…).
+    app.use((req, res, next) => {
+      if (/^\/(server|scripts|testy)\b|^\/(vite|vitest)\.config\.ts$/.test(req.path)) {
+        res.type('application/javascript').send('export {};\n');
+        return;
+      }
+      next();
+    });
     app.use(vite.middlewares);
   } else {
     const dist = path.join(__dirname, 'dist');

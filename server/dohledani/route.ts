@@ -55,7 +55,7 @@ export function routerDohledani() {
     }
   });
 
-  router.post('/dohledani', nahrani.any(), async (req: Request, res: Response) => {
+  router.post('/dohledani', nahrani.any() as unknown as express.RequestHandler, async (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-store');
     res.setHeader('X-Accel-Buffering', 'no');

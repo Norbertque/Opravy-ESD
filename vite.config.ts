@@ -20,6 +20,20 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
   },
   optimizeDeps: {
+    entries: ['index.html'],
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'lucide-react',
+      'idb',
+      'jszip',
+      'pdf-lib',
+      '@pdf-lib/fontkit',
+      'tesseract.js',
+    ],
     // pdf.js má vlastní worker – nepřebalovat. (tesseract.js je CommonJS, ten se přebalit musí.)
     exclude: ['pdfjs-dist'],
   },
