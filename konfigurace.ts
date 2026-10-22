@@ -21,6 +21,11 @@ export const konfigurace = {
      *                 Použijte, když 'spolecne' hlásí chyby.
      */
     rezimNastroju: 'spolecne' as 'spolecne' | 'dvoukrokove',
+    /**
+     * Jak model volí nástroje. Dokumentace Gemini pro kombinaci Google Search
+     * s vlastními funkcemi doporučuje 'validated'. Když to hlásí chybu, zkuste 'auto'.
+     */
+    volbaNastroju: 'validated' as 'validated' | 'auto',
     /** Jak dlouho nejvýš čekat na odpověď modelu na jeden krok (ms). */
     timeoutMs: 180_000,
     /** Soubory větší než tolik MB se k modelu posílají přes Files API, menší přímo v dotazu. */

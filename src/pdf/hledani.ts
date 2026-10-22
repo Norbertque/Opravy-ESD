@@ -34,6 +34,10 @@ export interface Usek {
   delka: number;
   /** Velikost písma (body). */
   velikost: number;
+  /** Před úsekem je mezera nebo začátek řádku (začátek jde zpřesnit podle obrazu). */
+  zacatekSlova?: boolean;
+  /** Za úsekem je mezera nebo konec řádku (konec jde zpřesnit podle obrazu). */
+  konecSlova?: boolean;
 }
 
 export interface Shoda {
@@ -185,7 +189,7 @@ export function najdiText(
   }
 
   const shody = [...nalezene.values()].map(({ od, do: doZnaku }) => ({
-    useky: usekyRozsahu(index, od, doZnaku, meritko),
+    useky: oznacHraniceSlov(usekyRozsahu(index, od, doZnaku, meritko), index.surovy, od, doZnaku),
     text: index.surovy.slice(od, doZnaku),
     skoreKontextu: skoreKontextu(index.surovy, od, doZnaku, kontext),
   }));
@@ -200,6 +204,16 @@ export function jednoznacnaShoda(shody: Shoda[]): Shoda | null {
   if (shody.length === 1) return shody[0];
   if (shody.length > 1 && shody[0].skoreKontextu > 0 && shody[0].skoreKontextu > shody[1].skoreKontextu) return shody[0];
   return null;
+}
+
+/** U víceřádkové shody začínají a končí vnitřní úseky na kraji řádku. */
+function oznacHraniceSlov(useky: Usek[], surovy: string, od: number, doZnaku: number): Usek[] {
+  const mezera = (z: string | undefined) => z === undefined || MEZERY.test(z) || z === '\n';
+  return useky.map((u, i) => ({
+    ...u,
+    zacatekSlova: i > 0 || mezera(surovy[od - 1]),
+    konecSlova: i < useky.length - 1 || mezera(surovy[doZnaku]),
+  }));
 }
 
 function naHraniciSlova(surovy: string, od: number, doZnaku: number, hledany: string) {
