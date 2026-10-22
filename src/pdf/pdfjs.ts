@@ -9,17 +9,24 @@ export type PdfViewport = pdfjs.PageViewport;
 
 /**
  * Otevře PDF v pdf.js. Data se vždy zkopírují – pdf.js předá buffer
- * do svého workeru a původní pole by se tím „vyprázdnilo".
+ * do svého workeru a původní pole by se tím „vyprázdnilo“.
  */
-export function otevriPdf(data: ArrayBuffer | Uint8Array) {
+export async function otevriPdf(data: ArrayBuffer | Uint8Array): Promise<PdfDokument> {
   const kopie = data instanceof Uint8Array ? data.slice() : new Uint8Array(data.slice(0));
-  return pdfjs.getDocument({
+  const ukol = pdfjs.getDocument({
     data: kopie,
     cMapUrl: '/pdfjs/cmaps/',
     cMapPacked: true,
     standardFontDataUrl: '/pdfjs/standard_fonts/',
     wasmUrl: '/pdfjs/wasm/',
-  }).promise;
+  });
+  try {
+    return await ukol.promise;
+  } catch (chyba) {
+    // PDF se neotevřelo (heslo, poškozený soubor) – worker by jinak zůstal běžet.
+    await ukol.destroy().catch(() => {});
+    throw chyba;
+  }
 }
 
 /** Uvolní dokument i jeho worker. */

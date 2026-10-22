@@ -1,6 +1,6 @@
 import { Minus, Plus, MoveHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { otevriPdf, zavriPdf, type PdfDokument, type PdfStrana, type PdfViewport } from '../pdf/pdfjs';
+import { jeChybaHesla, otevriPdf, zavriPdf, type PdfDokument, type PdfStrana, type PdfViewport } from '../pdf/pdfjs';
 
 export interface KlikVPdf {
   strana: number;
@@ -22,6 +22,8 @@ interface Props {
 
 const MIN_MERITKO = 0.4;
 const MAX_MERITKO = 4;
+/** Nejvíc pixelů jednoho plátna (64 MB paměti). Větší plátno Safari na iPhonu a iPadu ani nevykreslí. */
+const MAX_PIXELU_PLATNA = 4096 * 4096;
 
 /** Náhled PDF přes pdf.js: stránky pod sebou, vykreslují se až když jsou vidět. */
 export function NahledPdf({ data, prejitNa, prekryv, onKlik, kurzor }: Props) {
@@ -49,11 +51,18 @@ export function NahledPdf({ data, prejitNa, prekryv, onKlik, kurzor }: Props) {
           const v = (await doc.getPage(i)).getViewport({ scale: 1 });
           velikosti.push({ sirka: v.width, vyska: v.height });
         }
-        if (zruseno) return void zavriPdf(doc);
+        if (zruseno) return;
         setRozmery(velikosti);
         setDokument(doc);
-      } catch {
-        if (!zruseno) setChyba('Soubor se nepodařilo zobrazit.');
+      } catch (e) {
+        if (!zruseno)
+          setChyba(
+            jeChybaHesla(e)
+              ? 'PDF je zašifrované heslem, takže ho nejde zobrazit. Nahrajte verzi bez hesla.'
+              : 'Soubor se nepodařilo zobrazit. Možná je poškozený nebo to není PDF – nahrajte jinou verzi.',
+          );
+      } finally {
+        if (zruseno && otevreny) void zavriPdf(otevreny);
       }
     })();
     return () => {
@@ -62,7 +71,7 @@ export function NahledPdf({ data, prejitNa, prekryv, onKlik, kurzor }: Props) {
     };
   }, [data]);
 
-  // Šířka okna pro „na šířku"
+  // Šířka okna pro „na šířku“
   useEffect(() => {
     const el = posuvnik.current;
     if (!el) return;
@@ -197,9 +206,20 @@ function StranaPdf({ dokument, cislo, meritko, koren, prekryv, onKlik, kurzor, v
   }, [koren]);
 
   useEffect(() => {
-    if (!videt || !strana || !viewport || !platno.current) return;
-    const pomer = window.devicePixelRatio || 1;
     const canvas = platno.current;
+    if (!canvas) return;
+    if (!videt || !strana || !viewport) {
+      // Mimo obrazovku plátno i data stránky uvolnit – jedno plátno má klidně desítky MB.
+      // Až se strana vrátí do dohledu, vykreslí se znovu.
+      canvas.width = canvas.height = 0;
+      strana?.cleanup();
+      return;
+    }
+    // Ostrost podle displeje, ale u velkého zvětšení jen do limitu pixelů.
+    const pomer = Math.min(
+      window.devicePixelRatio || 1,
+      Math.sqrt(MAX_PIXELU_PLATNA / (viewport.width * viewport.height)),
+    );
     canvas.width = Math.floor(viewport.width * pomer);
     canvas.height = Math.floor(viewport.height * pomer);
     canvas.style.width = `${viewport.width}px`;

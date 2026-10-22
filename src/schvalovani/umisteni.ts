@@ -3,6 +3,7 @@
  * Když model uvede špatnou stranu, hledá se i na ostatních stranách téhož souboru.
  */
 import { jednoznacnaShoda, najdiText, type PolozkaTextu, type Shoda, type Usek } from '../pdf/hledani';
+import { rozpoznejStranu } from '../pdf/ocr';
 import { otevriPdf, zavriPdf, type PdfDokument } from '../pdf/pdfjs';
 import type { Vyskyt } from '../sdilene/dohledani';
 import type { SouborInfo } from '../ulozeni/typy';
@@ -48,14 +49,29 @@ export class DokumentyEsd {
     return d;
   }
 
+  /** Strana je sken bez textové vrstvy – text se získá přes OCR. */
+  jeSken(soubor: SouborInfo, strana: number) {
+    return soubor.kontrola?.stranyBezTextu.includes(strana) ?? false;
+  }
+
+  /** Volá se, když se na straně spouští OCR (pro hlášku průběhu). */
+  onOcr: ((soubor: SouborInfo, strana: number) => void) | null = null;
+
   async polozky(soubor: SouborInfo, strana: number): Promise<PolozkaTextu[]> {
     const klic = `${soubor.id}:${strana}`;
     let t = this.texty.get(klic);
     if (!t) {
       t = this.dokument(soubor).then(async (doc) => {
-        const obsah = await (await doc.getPage(strana)).getTextContent();
+        const s = await doc.getPage(strana);
+        if (this.jeSken(soubor, strana)) {
+          this.onOcr?.(soubor, strana);
+          return rozpoznejStranu(s);
+        }
+        const obsah = await s.getTextContent();
         return obsah.items.filter((i): i is (typeof obsah.items)[number] & PolozkaTextu => 'str' in i);
       });
+      // Neúspěch neukládat – příště se zkusí znovu.
+      t.catch(() => this.texty.delete(klic));
       this.texty.set(klic, t);
     }
     return t;
@@ -80,20 +96,21 @@ export async function najdiVyskyt(dokumenty: DokumentyEsd, vyskyt: Vyskyt): Prom
   const zaklad = { souborId: soubor.id, strana };
   const kontext = { pred: vyskyt.kontext_pred, za: vyskyt.kontext_za };
 
+  // Na skenu (OCR) se hledá přibližně – OCR občas splete znak nebo háček.
   const hledej = async (s: number) =>
-    (await najdiText(await dokumenty.polozky(soubor, s), vyskyt.presny_text, kontext)).map((shoda) => ({ strana: s, shoda }));
+    najdiText(await dokumenty.polozky(soubor, s), vyskyt.presny_text, kontext, undefined, bezTextu.has(s)).map((shoda) => ({ strana: s, shoda }));
 
   // 1) strana uvedená modelem
-  if (!bezTextu.has(strana)) {
-    const naStrane = await hledej(strana);
-    const jedna = jednoznacnaShoda(naStrane.map((n) => n.shoda));
-    if (jedna) return { ...zaklad, stav: 'nalezeno', useky: jedna.useky };
-    if (naStrane.length > 1) return { ...zaklad, stav: 'vice', useky: [], kandidati: naStrane.map(naKandidata) };
-  }
+  const naStrane = await hledej(strana).catch(() => []);
+  const jedna0 = jednoznacnaShoda(naStrane.map((n) => n.shoda));
+  if (jedna0) return { ...zaklad, stav: 'nalezeno', useky: jedna0.useky };
+  if (naStrane.length > 1) return { ...zaklad, stav: 'vice', useky: [], kandidati: naStrane.map(naKandidata) };
 
-  // 2) ostatní strany téhož souboru
+  // 2) ostatní strany téhož souboru (skeny jen když je celý soubor sken – OCR je pomalé)
+  const celySken = bezTextu.size >= stran;
   const jinde: { strana: number; shoda: Shoda }[] = [];
-  for (let s = 1; s <= stran; s++) if (s !== strana && !bezTextu.has(s)) jinde.push(...(await hledej(s)));
+  for (let s = 1; s <= stran; s++)
+    if (s !== strana && (!bezTextu.has(s) || celySken)) jinde.push(...(await hledej(s).catch(() => [])));
   jinde.sort((a, b) => b.shoda.skoreKontextu - a.shoda.skoreKontextu);
   const jedna = jednoznacnaShoda(jinde.map((n) => n.shoda));
   if (jedna) {

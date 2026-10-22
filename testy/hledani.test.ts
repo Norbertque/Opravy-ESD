@@ -111,3 +111,18 @@ describe('hledání v uměle sestavených položkách', () => {
     expect(shoda?.useky[0].pocatek[1]).toBe(680);
   });
 });
+
+describe('přibližné hledání (text z OCR)', () => {
+  it('najde text s chybějícím háčkem a zaměněným o/0', () => {
+    const polozky = [polozka('Zmocnenec: Petra Ukazkova, ziskatelske cislo 4O1234', 50, 700)];
+    expect(najdiText(polozky, 'Petra Ukázková', {}, undefined, true)).toHaveLength(1);
+    expect(najdiText(polozky, '401234', {}, undefined, true)).toHaveLength(1);
+    expect(najdiText(polozky, 'Petra Ukázková')).toHaveLength(0);
+  });
+
+  it('toleruje jeden překlep v delším textu, ale ne v krátkém', () => {
+    const polozky = [polozka('na pobocce Masarykova 132/46, 602 00 Brno.', 50, 700)];
+    expect(najdiText(polozky, 'Masarykova 132/45, 602 00 Brno', {}, undefined, true)).toHaveLength(1);
+    expect(najdiText([polozka('cislo 401235', 50, 700)], '401234', {}, undefined, true)).toHaveLength(0);
+  });
+});

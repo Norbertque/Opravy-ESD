@@ -6,6 +6,7 @@ import { formatDatum, sklonuj } from '../pomocne';
 import type { Intervence, KrokIntervence } from '../ulozeni/typy';
 import {
   dniDoSmazani,
+  nactiIntervenci,
   novaIntervence,
   seznamIntervenci,
   smazIntervenci,
@@ -20,6 +21,33 @@ export const NAZVY_KROKU: Record<KrokIntervence, string> = {
   export: 'Stažení',
 };
 
+const RADA_UKLADANI = 'Nepoužívejte anonymní okno, povolte ukládání dat pro tuto stránku a obnovte ji.';
+
+/** Za jak dlouho se smaže intervence, do které nikdo nic nezadal (omylem kliknutá Nová intervence). */
+const PRAZDNOU_SMAZAT_PO_MS = 60 * 60 * 1000;
+
+/** Prázdná intervence bez úprav déle než hodinu – v seznamu se neukazuje a smaže se. */
+function jeOpustena(i: Intervence, ted = Date.now()) {
+  const prazdna =
+    !i.nazev.trim() &&
+    !i.smlouva &&
+    i.esd.length === 0 &&
+    !i.zprava.text.trim() &&
+    i.zprava.soubory.length === 0 &&
+    !i.dohledani &&
+    !i.schvalovani;
+  return prazdna && ted - i.upraveno > PRAZDNOU_SMAZAT_PO_MS;
+}
+
+async function uklidOpustenych() {
+  for (const i of await seznamIntervenci()) {
+    if (!jeOpustena(i)) continue;
+    // Znovu načíst: mezitím mohlo doběhnout uložení z obrazovky, ze které uživatel právě odešel.
+    const aktualni = await nactiIntervenci(i.id);
+    if (aktualni && jeOpustena(aktualni)) await smazIntervenci(i.id);
+  }
+}
+
 /** Úvodní obrazovka: rozpracované intervence a tlačítko Nová intervence. */
 export function SeznamIntervenci() {
   const [seznam, setSeznam] = useState<Intervence[] | null>(null);
@@ -28,12 +56,14 @@ export function SeznamIntervenci() {
 
   const nacti = () =>
     seznamIntervenci()
-      .then(setSeznam)
-      .catch(() => setChyba('Uložené intervence se nepodařilo načíst. Prohlížeč možná blokuje ukládání dat.'));
+      .then((vse) => setSeznam(vse.filter((i) => !jeOpustena(i))))
+      .catch(() => setChyba(`Uložené intervence se nepodařilo načíst. ${RADA_UKLADANI}`));
 
   useEffect(() => {
     uklidStarych()
       .then(setSmazanoStarych)
+      .catch(() => {})
+      .then(uklidOpustenych)
       .catch(() => {})
       .finally(nacti);
   }, []);
@@ -43,13 +73,21 @@ export function SeznamIntervenci() {
       const nova = await ulozIntervenci(novaIntervence());
       jdiNa({ obrazovka: 'intervence', id: nova.id });
     } catch {
-      setChyba('Novou intervenci se nepodařilo založit. Prohlížeč možná blokuje ukládání dat.');
+      setChyba(`Novou intervenci se nepodařilo založit. ${RADA_UKLADANI}`);
     }
   };
 
   const smazat = async (i: Intervence) => {
-    if (!window.confirm(`Opravdu smazat intervenci „${i.nazev || 'bez názvu'}" včetně nahraných souborů?`)) return;
-    await smazIntervenci(i.id);
+    if (!window.confirm(`Opravdu smazat intervenci „${i.nazev || 'bez názvu'}“ včetně nahraných souborů?`)) return;
+    setChyba(null);
+    try {
+      await smazIntervenci(i.id);
+    } catch {
+      setChyba(
+        `Intervenci „${i.nazev || 'bez názvu'}“ se nepodařilo smazat. Obnovte stránku a zkuste to znovu. ` +
+          `Když to nepomůže, smaže se sama po ${konfigurace.ulozeni.smazatPoDnech} dnech bez úprav.`,
+      );
+    }
     await nacti();
   };
 

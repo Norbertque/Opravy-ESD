@@ -99,6 +99,19 @@ function zjednodusZnak(znak: string) {
     .replace(/[‚‘’′']/g, "'");
 }
 
+/**
+ * Pro text z OCR: navíc bez diakritiky a se sjednocenými znaky, které OCR plete
+ * (o/0, l/i/1). Upraví se hledaný text i text stránky stejně, takže se jen
+ * zmírní rozdíl mezi zaměnitelnými znaky.
+ */
+function bezDiakritiky(text: string) {
+  return text
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/o/g, '0')
+    .replace(/[il|]/g, '1');
+}
+
 export function zjednodus(text: string) {
   let vysledek = '';
   for (const znak of text.normalize('NFC')) if (!MEZERY.test(znak)) vysledek += zjednodusZnak(znak);
@@ -166,7 +179,7 @@ export function postavIndex(polozky: PolozkaTextu[]): IndexStranky {
  * Zjednodušený text s mapováním zpět do surového textu.
  * @param vynechatDeleni vynechat spojovník na konci řádku (dělené slovo)
  */
-function zjednodusIndex(surovy: string, vynechatDeleni: boolean) {
+function zjednodusIndex(surovy: string, vynechatDeleni: boolean, priblizne = false) {
   let text = '';
   const naSurovy: number[] = [];
   for (let i = 0; i < surovy.length; i++) {
@@ -182,7 +195,8 @@ function zjednodusIndex(surovy: string, vynechatDeleni: boolean) {
         if (k < surovy.length && /\p{Ll}/u.test(surovy[k])) continue;
       }
     }
-    for (const z of zjednodusZnak(znak)) {
+    const z0 = zjednodusZnak(znak);
+    for (const z of priblizne ? bezDiakritiky(z0) : z0) {
       text += z;
       naSurovy.push(i);
     }
@@ -201,17 +215,20 @@ export function najdiText(
   hledany: string,
   kontext: { pred?: string; za?: string } = {},
   meritko: MeritkoTextu = meritkoPodleTvaru,
+  /** Text z OCR: tolerovat pár chybných znaků a chybějící diakritiku. */
+  priblizne = false,
 ): Shoda[] {
-  const jehla = zjednodus(hledany);
+  const jehla = priblizne ? bezDiakritiky(zjednodus(hledany)) : zjednodus(hledany);
   if (!jehla) return [];
   const index = postavIndex(polozky);
   const nalezene = new Map<string, { od: number; do: number }>();
 
   for (const vynechatDeleni of [true, false]) {
-    const z = zjednodusIndex(index.surovy, vynechatDeleni);
-    for (let i = z.text.indexOf(jehla); i !== -1; i = z.text.indexOf(jehla, i + 1)) {
-      const od = z.naSurovy[i];
-      const doZnaku = z.naSurovy[i + jehla.length - 1] + 1;
+    const z = zjednodusIndex(index.surovy, vynechatDeleni, priblizne);
+    const rozsahy = priblizne ? priblizneVyskyty(z.text, jehla) : presneVyskyty(z.text, jehla);
+    for (const [zac, kon] of rozsahy) {
+      const od = z.naSurovy[zac];
+      const doZnaku = z.naSurovy[kon - 1] + 1;
       if (!naHraniciSlova(index.surovy, od, doZnaku, hledany)) continue;
       nalezene.set(`${od}-${doZnaku}`, { od, do: doZnaku });
     }
@@ -223,6 +240,53 @@ export function najdiText(
     skoreKontextu: skoreKontextu(index.surovy, od, doZnaku, kontext),
   }));
   return shody.sort((a, b) => b.skoreKontextu - a.skoreKontextu);
+}
+
+function presneVyskyty(text: string, jehla: string): [number, number][] {
+  const vysledek: [number, number][] = [];
+  for (let i = text.indexOf(jehla); i !== -1; i = text.indexOf(jehla, i + 1)) vysledek.push([i, i + jehla.length]);
+  return vysledek;
+}
+
+/**
+ * Přibližné výskyty (Sellersův algoritmus): nejvýš k překlepů, k podle délky
+ * (krátký text musí sedět přesně, na každých 7 znaků jeden překlep).
+ * Z překrývajících se shod se bere ta s nejmenším počtem překlepů.
+ */
+export function priblizneVyskyty(text: string, jehla: string): [number, number][] {
+  const m = jehla.length;
+  const k = m < 5 ? 0 : Math.floor(m / 7);
+  if (k === 0) return presneVyskyty(text, jehla);
+  let predchozi = Array.from({ length: m + 1 }, (_, i) => i);
+  let zacPred = new Array<number>(m + 1).fill(0);
+  const kandidati: { zac: number; kon: number; chyb: number }[] = [];
+  for (let j = 1; j <= text.length; j++) {
+    const aktualni = [0];
+    const zacAkt = [j];
+    for (let i = 1; i <= m; i++) {
+      const sikmo = predchozi[i - 1] + (jehla[i - 1] === text[j - 1] ? 0 : 1);
+      const shora = aktualni[i - 1] + 1;
+      const zleva = predchozi[i] + 1;
+      if (sikmo <= shora && sikmo <= zleva) {
+        aktualni.push(sikmo);
+        zacAkt.push(zacPred[i - 1]);
+      } else if (shora <= zleva) {
+        aktualni.push(shora);
+        zacAkt.push(zacAkt[i - 1]);
+      } else {
+        aktualni.push(zleva);
+        zacAkt.push(zacPred[i]);
+      }
+    }
+    if (aktualni[m] <= k) kandidati.push({ zac: zacAkt[m], kon: j, chyb: aktualni[m] });
+    predchozi = aktualni;
+    zacPred = zacAkt;
+  }
+  // Nepřekrývající se shody, nejlepší první
+  kandidati.sort((a, b) => a.chyb - b.chyb || b.kon - b.zac - (a.kon - a.zac));
+  const vybrane: [number, number][] = [];
+  for (const c of kandidati) if (!vybrane.some(([z, kon]) => c.zac < kon && c.kon > z)) vybrane.push([c.zac, c.kon]);
+  return vybrane.sort((a, b) => a[0] - b[0]);
 }
 
 /**

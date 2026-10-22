@@ -88,7 +88,8 @@ try {
   over(await stranka.getByRole('button', { name: /Pokračovat k dohledání/ }).isDisabled(), 'se zašifrovaným ESD nejde pokračovat');
   await snimek(stranka, 'krok1-nahrani');
 
-  // Odebrat problémové soubory
+  // Odebrat problémové soubory (appka se ptá, jestli opravdu)
+  stranka.on('dialog', (d) => void d.accept());
   for (const nazev of ['sifrovane.pdf', 'podepsane.pdf']) {
     await stranka.locator('div.rounded-lg', { hasText: nazev }).last().getByRole('button', { name: 'Odebrat' }).click();
   }

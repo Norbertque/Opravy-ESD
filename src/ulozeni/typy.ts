@@ -16,6 +16,11 @@ export interface KontrolaPdf {
   stranyBezTextu: number[];
   /** Srozumitelný popis chyby, když se PDF nepodařilo přečíst. */
   chyba?: string;
+  /**
+   * pdf-lib PDF nenačetl (nestandardní nebo lehce poškozená struktura), přestože ho pdf.js
+   * zobrazí. Náhled a hledání textu fungují, ale zakreslit do něj opravu nejde – u ESD blokuje.
+   */
+  nejdeUpravit?: boolean;
 }
 
 /** Soubor uložený v prohlížeči. Samotná data jsou v samostatném úložišti (podle id). */

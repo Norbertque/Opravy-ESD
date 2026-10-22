@@ -1,6 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { nactiIntervenci, ulozIntervenci } from './uloziste';
 import type { Intervence } from './typy';
+
+/** Kolik prací, které intervenci ještě změní, právě běží – podle id intervence. */
+const rozpracovano = new Map<string, number>();
+const posluchaci = new Set<() => void>();
+
+function oznamPraci() {
+  for (const posluchac of posluchaci) posluchac();
+}
+
+function odebirejPraci(posluchac: () => void) {
+  posluchaci.add(posluchac);
+  return () => {
+    posluchaci.delete(posluchac);
+  };
+}
+
+/**
+ * Označí práci, která intervenci ještě změní (nahrání souboru, kontrola PDF).
+ * Dokud běží, ukazatel ukládání ukazuje „Ukládám…“ a zavření stránky se zeptá, jestli odejít.
+ */
+export async function pracujNa<T>(intervenceId: string, prace: () => Promise<T>): Promise<T> {
+  rozpracovano.set(intervenceId, (rozpracovano.get(intervenceId) ?? 0) + 1);
+  oznamPraci();
+  try {
+    return await prace();
+  } finally {
+    const zbyva = (rozpracovano.get(intervenceId) ?? 1) - 1;
+    if (zbyva > 0) rozpracovano.set(intervenceId, zbyva);
+    else rozpracovano.delete(intervenceId);
+    oznamPraci();
+  }
+}
+
+/** Běží u intervence nějaká práce označená přes pracujNa? */
+export function usePracuje(intervenceId: string) {
+  return useSyncExternalStore(odebirejPraci, () => rozpracovano.has(intervenceId));
+}
 
 /**
  * Načte intervenci a každou změnu automaticky uloží do prohlížeče
@@ -11,6 +48,7 @@ export function useIntervence(id: string) {
   // undefined = načítá se, null = neexistuje
   const [intervence, setIntervence] = useState<Intervence | null | undefined>(undefined);
   const [ukladani, setUkladani] = useState<'ulozeno' | 'ceka' | 'chyba'>('ulozeno');
+  const pracuje = usePracuje(id);
   const aktualni = useRef<Intervence | null>(null);
   const neulozena = useRef<Intervence | null>(null);
   const casovac = useRef<number | undefined>(undefined);
@@ -61,7 +99,7 @@ export function useIntervence(id: string) {
       if (document.visibilityState === 'hidden') void ulozHned();
     };
     const predOdchodem = (e: BeforeUnloadEvent) => {
-      if (neulozena.current) {
+      if (neulozena.current || rozpracovano.has(id)) {
         void ulozHned();
         e.preventDefault();
       }
@@ -75,7 +113,9 @@ export function useIntervence(id: string) {
       window.removeEventListener('beforeunload', predOdchodem);
       void ulozHned();
     };
-  }, [ulozHned]);
+  }, [ulozHned, id]);
 
-  return { intervence, zmen, ukladani, ulozHned };
+  // Nahrávání a kontrola PDF ještě intervenci změní – do jejich konce není „uloženo“.
+  const stavUkladani: typeof ukladani = pracuje && ukladani === 'ulozeno' ? 'ceka' : ukladani;
+  return { intervence, zmen, ukladani: stavUkladani, ulozHned };
 }

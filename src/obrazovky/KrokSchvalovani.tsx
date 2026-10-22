@@ -44,6 +44,7 @@ export function KrokSchvalovani({ intervence, zmen, prejdiNa }: KrokProps) {
   useEffect(() => () => void dokumenty.zavri(), [dokumenty]);
 
   const [pripravuji, setPripravuji] = useState<string | null>(null);
+  const [ocr, setOcr] = useState<string | null>(null);
   const [zalozka, setZalozka] = useState<Zalozka>({ druh: 'esd', id: intervence.esd[0]?.id ?? '' });
   const [prejitNa, setPrejitNa] = useState<{ strana: number; pozadavek: number }>();
   const [aktivni, setAktivni] = useState<{ cislo: number; index: number } | null>(null);
@@ -57,6 +58,7 @@ export function KrokSchvalovani({ intervence, zmen, prejdiNa }: KrokProps) {
   useEffect(() => {
     if (!vysledek || aktualni) return;
     let zruseno = false;
+    dokumenty.onOcr = (soubor, strana) => !zruseno && setOcr(`Rozpoznávám text na skenu „${soubor.nazev}“, strana ${strana}…`);
     (async () => {
       const body: StavSchvalovani['body'] = {};
       const celkem = vysledek.body.reduce((n, b) => n + b.vyskyty.length, 0);
@@ -79,9 +81,11 @@ export function KrokSchvalovani({ intervence, zmen, prejdiNa }: KrokProps) {
       if (zruseno) return;
       zmen((i) => ({ ...i, schvalovani: { dohledaniZ: dokonceno, body, rucni: [], hotoveUkoly: [] } }));
       setPripravuji(null);
+      setOcr(null);
     })();
     return () => {
       zruseno = true;
+      dokumenty.onOcr = null;
     };
   }, [vysledek, aktualni, dokonceno, dokumenty, zmen]);
 
@@ -100,9 +104,12 @@ export function KrokSchvalovani({ intervence, zmen, prejdiNa }: KrokProps) {
     );
   if (!s || !aktualni)
     return (
-      <p className="flex items-center gap-2 p-6 text-slate-600">
-        <Loader2 className="animate-spin" size={18} /> Hledám místa v PDF{pripravuji ? ` (${pripravuji})` : ''}…
-      </p>
+      <div className="p-6 text-slate-600">
+        <p className="flex items-center gap-2">
+          <Loader2 className="animate-spin" size={18} /> Hledám místa v PDF{pripravuji ? ` (${pripravuji})` : ''}…
+        </p>
+        {ocr && <p className="mt-2 text-sm">{ocr} Na skenu to může trvat několik sekund na stránku.</p>}
+      </div>
     );
 
   const upravSchvalovani = (uprava: (x: StavSchvalovani) => StavSchvalovani) =>

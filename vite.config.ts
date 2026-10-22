@@ -16,7 +16,7 @@ export default defineConfig({
     watch: process.env.DISABLE_HMR === 'true' ? null : {},
   },
   optimizeDeps: {
-    // pdf.js a tesseract.js mají vlastní workery – nepřebalovat.
-    exclude: ['pdfjs-dist', 'tesseract.js'],
+    // pdf.js má vlastní worker – nepřebalovat. (tesseract.js je CommonJS, ten se přebalit musí.)
+    exclude: ['pdfjs-dist'],
   },
 });

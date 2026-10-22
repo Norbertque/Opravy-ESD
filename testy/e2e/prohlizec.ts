@@ -12,8 +12,8 @@ export const DATA = path.join(KOREN, 'testovaci-data');
 export const VYSTUPY = path.join(KOREN, 'test-vystupy');
 export const ADRESA = process.env.APP_ADRESA ?? 'http://localhost:3000';
 
-/** Notebook 14" ve výchozím zvětšení Windows (1920×1080 při 150 %). */
-export const NOTEBOOK = { width: 1280, height: 720 };
+/** Okno prohlížeče na 14" notebooku (1920×1080 při 150 %, bez lišt prohlížeče a Windows). */
+export const NOTEBOOK = { width: 1280, height: 600 };
 
 export async function spustProhlizec() {
   await fs.mkdir(VYSTUPY, { recursive: true });

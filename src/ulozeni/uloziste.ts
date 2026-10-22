@@ -24,6 +24,15 @@ const DEN_MS = 24 * 60 * 60 * 1000;
 
 let spojeni: Promise<IDBPDatabase<Schema>> | null = null;
 
+/**
+ * Rozpracovaná uložení podle id intervence. Uložení jedné intervence jdou za sebou
+ * a čtení na ně počká – po rychlém odchodu a návratu tak obrazovka nenačte starou verzi.
+ */
+const ukladaniIntervenci = new Map<string, Promise<void>>();
+
+/** Odebrané soubory podle id intervence. Data se smažou, až bude uložená verze, která je nezmiňuje. */
+const kSmazani = new Map<string, Set<string>>();
+
 function db() {
   spojeni ??= openDB<Schema>('opravy-esd', 1, {
     upgrade(databaze) {
@@ -59,17 +68,35 @@ export async function seznamIntervenci(): Promise<Intervence[]> {
 }
 
 export async function nactiIntervenci(id: string) {
+  await ukladaniIntervenci.get(id)?.catch(() => undefined);
   return (await db()).get('intervence', id);
 }
 
 /** Uloží intervenci. Čas poslední změny se nastaví sám. */
 export async function ulozIntervenci(intervence: Intervence) {
   const ulozena = { ...intervence, upraveno: Date.now() };
-  await (await db()).put('intervence', ulozena);
+  // Zařadí se hned (ne až po await), aby o uložení věděla i obrazovka otevřená vzápětí.
+  const predchozi = ukladaniIntervenci.get(ulozena.id) ?? Promise.resolve();
+  const ulozeni: Promise<void> = predchozi
+    .catch(() => undefined)
+    .then(async () => {
+      await (await db()).put('intervence', ulozena);
+      // Mezitím zařazené uložení je novější – soubory smaže až ono.
+      if (ukladaniIntervenci.get(ulozena.id) === ulozeni) await smazOdebraneSoubory(ulozena);
+    });
+  ukladaniIntervenci.set(ulozena.id, ulozeni);
+  const uklid = () => {
+    if (ukladaniIntervenci.get(ulozena.id) === ulozeni) ukladaniIntervenci.delete(ulozena.id);
+  };
+  ulozeni.then(uklid, uklid);
+  await ulozeni;
   return ulozena;
 }
 
 export async function smazIntervenci(id: string) {
+  // Uložení, které ještě běží, by smazanou intervenci zase vytvořilo.
+  await ukladaniIntervenci.get(id)?.catch(() => undefined);
+  kSmazani.delete(id);
   const d = await db();
   const tx = d.transaction(['intervence', 'soubory'], 'readwrite');
   const klice = await tx.objectStore('soubory').index('intervenceId').getAllKeys(id);
@@ -84,7 +111,7 @@ export async function ulozSoubor(intervenceId: string, soubor: File): Promise<So
   const info: SouborInfo = {
     id: noveId(),
     nazev: soubor.name,
-    mime: soubor.type || odhadniMime(soubor.name),
+    mime: mimeSouboru(soubor),
     velikost: soubor.size,
   };
   // Kopie dat do vlastního Blobu, aby nezávisela na původním souboru na disku.
@@ -99,6 +126,30 @@ export async function nactiSoubor(id: string): Promise<Blob | undefined> {
 
 export async function smazSoubor(id: string) {
   await (await db()).delete('soubory', id);
+}
+
+/**
+ * Smaže data souboru odebraného z intervence, ale až po uložení intervence bez něj.
+ * Kdyby se smazala hned a stránka se zavřela před uložením, zůstala by uložená verze
+ * s odkazem na soubor, který už neexistuje.
+ */
+export function smazSouborPoUlozeni(intervenceId: string, souborId: string) {
+  const cekajici = kSmazani.get(intervenceId) ?? new Set<string>();
+  cekajici.add(souborId);
+  kSmazani.set(intervenceId, cekajici);
+}
+
+async function smazOdebraneSoubory(ulozena: Intervence) {
+  const cekajici = kSmazani.get(ulozena.id);
+  if (!cekajici) return;
+  const pouzite = new Set([ulozena.smlouva, ...ulozena.esd, ...ulozena.zprava.soubory].map((s) => s?.id));
+  for (const souborId of cekajici) {
+    if (pouzite.has(souborId)) continue;
+    cekajici.delete(souborId);
+    // Když se smazání nepovede, data zůstanou jen do smazání celé intervence.
+    await smazSoubor(souborId).catch(() => undefined);
+  }
+  if (cekajici.size === 0) kSmazani.delete(ulozena.id);
 }
 
 /** Za kolik dní se intervence sama smaže (0 = dnes). */
@@ -116,19 +167,33 @@ export async function uklidStarych(ted = Date.now()) {
   return stare.length;
 }
 
+const MIME_PODLE_PRIPONY: Record<string, string> = {
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  eml: 'message/rfc822',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+};
+const ZNAME_MIME = new Set(Object.values(MIME_PODLE_PRIPONY));
+const NEZNAMY_MIME = 'application/octet-stream';
+
 /** Druh souboru podle přípony, když ho prohlížeč nepozná (typicky .eml, někdy .docx). */
 export function odhadniMime(nazev: string) {
   const pripona = nazev.toLowerCase().split('.').pop() ?? '';
-  const mapa: Record<string, string> = {
-    pdf: 'application/pdf',
-    txt: 'text/plain',
-    eml: 'message/rfc822',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    webp: 'image/webp',
-    heic: 'image/heic',
-  };
-  return mapa[pripona] ?? 'application/octet-stream';
+  return MIME_PODLE_PRIPONY[pripona] ?? NEZNAMY_MIME;
+}
+
+/**
+ * Druh nahraného souboru. Prohlížeč ho někdy nezná nebo uvádí nestandardně
+ * (prázdný u .eml a .heic, „image/jpg“, „application/x-pdf“), pak rozhoduje přípona.
+ */
+export function mimeSouboru(soubor: { name: string; type: string }) {
+  if (ZNAME_MIME.has(soubor.type)) return soubor.type;
+  const podlePripony = odhadniMime(soubor.name);
+  return podlePripony === NEZNAMY_MIME && soubor.type ? soubor.type : podlePripony;
 }
