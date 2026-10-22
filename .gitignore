@@ -13,3 +13,8 @@ coverage/
 test-vystupy/
 test-results/
 playwright-report/
+
+# Zámky balíčků: AI Studio instaluje přes bun a package-lock.json mu překáží
+package-lock.json
+bun.lock
+bun.lockb

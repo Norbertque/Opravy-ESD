@@ -230,11 +230,10 @@ Potřeba: Node.js 20 nebo novější.
 
 ```bash
 npm install
-cp .env.example .env.local      # a doplnit
 npm run dev                     # http://localhost:3000
 ```
 
-V `.env.local`:
+Do souboru `.env.local` (není v gitu) zapište:
 
 - `GEMINI_API_KEY=...` – vlastní klíč, když chcete zkoušet skutečný model,
 - nebo bez klíče testovací režim: `MOCK_GEMINI=1` (připravené výsledky pro testovací dokumenty)
