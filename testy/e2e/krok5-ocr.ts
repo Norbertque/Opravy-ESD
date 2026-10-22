@@ -10,7 +10,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import type { Usek } from '../../src/pdf/hledani';
-import { obrazky, otevri, podilTmavych, polozky, prekryvaSe, vyrenderuj, zmerSkrt, boxPolozky } from './analyza-pdf';
+import { boxPolozky, obrazky, otevri, podilTmavych, polozky, prekryvaSe, prumernyJas, vyrenderuj, zmerSkrt } from './analyza-pdf';
 import { DATA, hlidejChyby, KOREN, NOTEBOOK, over, snimek, spustProhlizec, VYSTUPY, zalozIntervenci } from './prohlizec';
 
 const TEXT = await fs.readFile(path.join(DATA, 'intervence.txt'), 'utf8');
@@ -65,6 +65,15 @@ try {
   console.log('Export');
   await stranka.getByRole('button', { name: /Pokračovat ke stažení/ }).click();
   await stranka.getByText('z Google Disku: podpis.png').waitFor({ timeout: 30_000 });
+  // Vlastní podpis jako fotka (JPG s šedavým papírem) – appka pozadí zprůhlední
+  await stranka.locator('input[type=file][accept*="image/jpeg"]').setInputFiles(path.join(DATA, 'podpis-fotka.jpg'));
+  await stranka.getByText('nahraný z počítače: podpis-fotka.jpg').waitFor({ timeout: 30_000 });
+  over(true, 'podpis jako JPG jde nahrát');
+  const zapamatovany = await stranka.evaluate(`(async () => {
+    const db = await new Promise((hotovo) => { const r = indexedDB.open('opravy-esd'); r.onsuccess = () => hotovo(r.result); });
+    return new Promise((hotovo) => { const r = db.transaction('nastaveni').objectStore('nastaveni').get('podpis'); r.onsuccess = () => hotovo(Boolean(r.result)); });
+  })()`);
+  over(zapamatovany, 'nahraný podpis si appka zapamatovala v prohlížeči');
   await stranka.getByRole('button', { name: 'Vytvořit opravená PDF' }).click();
   await stranka.getByRole('heading', { name: 'Hotovo' }).waitFor({ timeout: 120_000 });
   const zprava = await stranka.locator('section', { hasText: 'Hotovo' }).innerText();
@@ -101,6 +110,12 @@ try {
   for (const box of noveBoxy) {
     const tmave = podilTmavych(renderOrig, box);
     over(tmave < 0.002, `oprava/podpis leží na prázdném místě skenu (tmavé pixely ${(tmave * 100).toFixed(2)} %)`);
+  }
+  // Podpis z JPG nesmí na šedém skenu udělat bílý obdélník: oblast podpisu nesmí být světlejší než papír originálu.
+  for (const box of (await obrazky(opraveny, 1)).slice(puvodniObrazky)) {
+    const jasOrig = prumernyJas(renderOrig, box);
+    const jasOprav = prumernyJas(renderOprav, box);
+    over(jasOprav <= jasOrig + 1, `podpis má průhledné pozadí (jas papíru ${jasOrig.toFixed(1)}, s podpisem ${jasOprav.toFixed(1)})`);
   }
   for (let i = 0; i < noveBoxy.length; i++)
     for (let j = i + 1; j < noveBoxy.length; j++) over(!prekryvaSe(noveBoxy[i], noveBoxy[j], 0.2), 'opravy a podpisy se nepřekrývají');

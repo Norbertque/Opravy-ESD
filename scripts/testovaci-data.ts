@@ -6,6 +6,7 @@
  *   testovaci-data/esd-2-plna-moc.pdf        ESD 2: plná moc (otočená strana, strana Letter)
  *   testovaci-data/esd-2-plna-moc-sken.pdf   ESD 2 jako sken (jen obrázky, bez textu)
  *   testovaci-data/intervence.txt / .eml / .docx   intervence s 5 body
+ *   testovaci-data/podpis-fotka.jpg          podpis jako fotka (JPG, šedavý papír)
  *   test-drive/…                             náhrada Google Disku (materiály + podpis)
  *
  * Spuštění: npm run testovaci-data
@@ -309,6 +310,35 @@ function podpisPng() {
   return PNG.sync.write(png);
 }
 
+/** Podpis jako „fotka" (JPG): šedavý papír, šum, bez průhlednosti – jako vyfocený podpis. */
+function podpisFotkaJpg() {
+  const platno = createCanvas(900, 420);
+  const ctx = platno.getContext('2d');
+  ctx.fillStyle = '#ecebe6';
+  ctx.fillRect(0, 0, 900, 420);
+  ctx.strokeStyle = '#1b2a6b';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  for (let t = 0; t <= 1; t += 0.002) {
+    const x = 160 + 600 * t;
+    const y = 220 + 70 * Math.sin(t * 20) * Math.exp(-t * 1.3) - 40 * Math.sin(t * 5);
+    if (t === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.moveTo(210, 300);
+  ctx.lineTo(700, 150);
+  ctx.stroke();
+  const obraz = ctx.getImageData(0, 0, 900, 420);
+  let semeno = 7;
+  for (let i = 0; i < obraz.data.length; i += 4) {
+    const sum = (((semeno = (semeno * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff) - 0.5) * 16;
+    for (let k = 0; k < 3; k++) obraz.data[i + k] = Math.max(0, Math.min(255, obraz.data[i + k] + sum));
+  }
+  ctx.putImageData(obraz, 0, 0);
+  return platno.toBuffer('image/jpeg', 88);
+}
+
 // ---------------------------------------------------------------- intervence
 
 const INTERVENCE = `Dobrý den,
@@ -420,6 +450,7 @@ await fs.writeFile(path.join(DATA, 'esd-1-zaznam.pdf'), await esd1());
 await fs.writeFile(path.join(DATA, 'esd-2-plna-moc.pdf'), esd2Pdf);
 await fs.writeFile(path.join(DATA, 'esd-2-plna-moc-sken.pdf'), await sken(esd2Pdf));
 await fs.writeFile(path.join(DATA, 'intervence.txt'), INTERVENCE);
+await fs.writeFile(path.join(DATA, 'podpis-fotka.jpg'), podpisFotkaJpg());
 await fs.writeFile(path.join(DATA, 'intervence.eml'), eml(INTERVENCE));
 await fs.writeFile(path.join(DATA, 'intervence.docx'), await docx(INTERVENCE));
 

@@ -158,3 +158,22 @@ export function zmerSkrt(r: Render, u: Usek) {
   while (konec + krok < u.delka + 5 && jeModra(r, ...bod(konec + krok, vyska))) konec += krok;
   return { zacatek, konec, vyska };
 }
+
+/** Průměrný jas (0–255) v obdélníku stránky. */
+export function prumernyJas(r: Render, b: Box) {
+  const [ax, ay] = r.bodNaPixel(b.x0, b.y0);
+  const [bx, by] = r.bodNaPixel(b.x1, b.y1);
+  const x0 = Math.max(0, Math.floor(Math.min(ax, bx)));
+  const x1 = Math.min(r.sirka - 1, Math.ceil(Math.max(ax, bx)));
+  const y0 = Math.max(0, Math.floor(Math.min(ay, by)));
+  const y1 = Math.min(r.vyska - 1, Math.ceil(Math.max(ay, by)));
+  let soucet = 0;
+  let pocet = 0;
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const i = (y * r.sirka + x) * 4;
+      soucet += (r.data[i] + r.data[i + 1] + r.data[i + 2]) / 3;
+      pocet++;
+    }
+  return pocet ? soucet / pocet : 255;
+}

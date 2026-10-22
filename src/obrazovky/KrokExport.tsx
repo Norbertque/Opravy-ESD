@@ -8,13 +8,15 @@ import { NahledPdf } from '../komponenty/NahledPdf';
 import { bezPripony, sklonuj } from '../pomocne';
 import { jeUmisteno } from '../schvalovani/umisteni';
 import type { Intervence, SouborInfo } from '../ulozeni/typy';
-import { nactiSoubor, smazIntervenci } from '../ulozeni/uloziste';
+import { nactiSoubor, nactiUlozenyPodpis, smazIntervenci, ulozPodpis, zapomenPodpis } from '../ulozeni/uloziste';
 import type { KrokProps } from './DetailIntervence';
 
 interface Podpis {
   data: ArrayBuffer;
   url: string;
   zdroj: string;
+  /** Podpis zapamatovaný v tomto prohlížeči (jde zapomenout). */
+  zapamatovany: boolean;
 }
 
 interface Kandidat {
@@ -76,10 +78,39 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
   // Uvolnit adresu obrázku podpisu
   useEffect(() => () => void (podpis && URL.revokeObjectURL(podpis.url)), [podpis]);
 
-  const nastavPodpis = (data: ArrayBuffer, zdroj: string) => {
-    setPodpis({ data, url: URL.createObjectURL(new Blob([data], { type: 'image/png' })), zdroj });
-    setStavPodpisu('ok');
-    setHlaskaPodpisu(null);
+  /** Obrázek podpisu (PNG/JPG/WebP) připraví – průhledné pozadí, ořez – a použije. */
+  const nastavPodpis = async (obrazek: Blob, zdroj: string, moznosti: { zapamatovat?: boolean; zapamatovany?: boolean } = {}) => {
+    try {
+      const png = moznosti.zapamatovany ? obrazek : await (await import('../export/podpis')).pripravPodpis(obrazek);
+      setPodpis({
+        data: await png.arrayBuffer(),
+        url: URL.createObjectURL(png),
+        zdroj,
+        zapamatovany: Boolean(moznosti.zapamatovat || moznosti.zapamatovany),
+      });
+      setStavPodpisu('ok');
+      setHlaskaPodpisu(null);
+      setVystupy(null);
+      if (moznosti.zapamatovat) await ulozPodpis(png, zdroj).catch(() => {});
+    } catch (e) {
+      setHlaskaPodpisu(e instanceof Error ? e.message : 'Obrázek podpisu se nepodařilo použít.');
+      setStavPodpisu('chybi');
+    }
+  };
+
+  /** Když podpis na Disku není, použít ten zapamatovaný z dřívějška. */
+  const zkusZapamatovany = async () => {
+    const ulozeny = await nactiUlozenyPodpis().catch(() => undefined);
+    if (!ulozeny) return false;
+    await nastavPodpis(ulozeny.data, `uložený v tomto prohlížeči (${ulozeny.popis})`, { zapamatovany: true });
+    return true;
+  };
+
+  const zapomenout = async () => {
+    await zapomenPodpis().catch(() => {});
+    setPodpis(null);
+    setStavPodpisu('chybi');
+    setHlaskaPodpisu('Podpis byl zapomenut. Nahrajte podpis z počítače.');
     setVystupy(null);
   };
 
@@ -97,13 +128,15 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
         if (!zruseno) setMockDisk(stav.mockDisk);
         const odpoved = await fetch('/api/podpis', { headers: await hlavicky() });
         if (zruseno) return;
-        if (odpoved.ok) return nastavPodpis(await odpoved.arrayBuffer(), `z Google Disku: ${decodeURIComponent(odpoved.headers.get('X-Nazev') ?? konfigurace.disk.podpis)}`);
+        if (odpoved.ok)
+          return void (await nastavPodpis(await odpoved.blob(), `z Google Disku: ${decodeURIComponent(odpoved.headers.get('X-Nazev') ?? konfigurace.disk.podpis)}`));
         const telo = await odpoved.json().catch(() => ({}));
+        if (zruseno || (await zkusZapamatovany())) return;
         setKandidati(telo.kandidati ?? []);
         setHlaskaPodpisu(telo.chyba ?? 'Podpis se nepodařilo načíst. Nahrajte ho z počítače.');
         setStavPodpisu('chybi');
       } catch {
-        if (zruseno) return;
+        if (zruseno || (await zkusZapamatovany())) return;
         setHlaskaPodpisu('Podpis se nepodařilo načíst. Nahrajte ho z počítače.');
         setStavPodpisu('chybi');
       }
@@ -115,15 +148,15 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
 
   const vybratKandidata = async (k: Kandidat) => {
     const odpoved = await fetch(`/api/podpis/${encodeURIComponent(k.id)}`, { headers: await hlavicky() });
-    if (odpoved.ok) nastavPodpis(await odpoved.arrayBuffer(), `z Google Disku: ${k.nazev}`);
+    if (odpoved.ok) await nastavPodpis(await odpoved.blob(), `z Google Disku: ${k.nazev}`);
     else setHlaskaPodpisu('Vybraný obrázek se nepodařilo načíst.');
   };
 
   const nahratZPocitace = async (soubor: File | undefined) => {
     if (!soubor) return;
-    if (soubor.type !== 'image/png' && !soubor.name.toLowerCase().endsWith('.png'))
-      return setHlaskaPodpisu('Podpis musí být obrázek PNG (ideálně s průhledným pozadím).');
-    nastavPodpis(await soubor.arrayBuffer(), `nahraný z počítače: ${soubor.name}`);
+    if (!/^image\/(png|jpeg|webp)$/.test(soubor.type) && !/\.(png|jpe?g|webp)$/i.test(soubor.name))
+      return setHlaskaPodpisu('Podpis musí být obrázek PNG nebo JPG.');
+    await nastavPodpis(soubor, `nahraný z počítače: ${soubor.name}`, { zapamatovat: true });
   };
 
   const vytvorit = async () => {
@@ -201,6 +234,11 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
               <span className="text-sm text-slate-600">{podpis.zdroj}</span>
             </div>
           )}
+          {podpis?.zapamatovany && (
+            <button className="mb-2 text-sm text-slate-600 underline" onClick={zapomenout}>
+              Zapomenout podpis v tomto prohlížeči
+            </button>
+          )}
           {hlaskaPodpisu && <p className="mb-2 text-sm text-amber-900">{hlaskaPodpisu}</p>}
           {kandidati.length > 0 && !podpis && (
             <ul className="mb-2 space-y-1">
@@ -221,16 +259,18 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
           <input
             ref={vstupPodpisu}
             type="file"
-            accept=".png,image/png"
+            accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
             className="hidden"
             onChange={(e) => {
               void nahratZPocitace(e.target.files?.[0]);
               e.target.value = '';
             }}
           />
-          {mockDisk === false && !PRIHLASENI_NAPOJENO && !podpis && (
-            <p className="mt-2 text-sm text-slate-600">Google Disk není v appce připojený, podpis nahrajte z počítače.</p>
-          )}
+          <p className="mt-2 text-sm text-slate-600">
+            {mockDisk === false && !PRIHLASENI_NAPOJENO && !podpis && 'Google Disk není v appce připojený, podpis nahrajte z počítače. '}
+            Podpis může být PNG nebo JPG (fotka nebo sken). Bílé pozadí appka sama zprůhlední a ořízne okraje. Nahraný podpis si
+            appka zapamatuje v tomto prohlížeči.
+          </p>
         </section>
 
         <div className="flex flex-wrap gap-2">

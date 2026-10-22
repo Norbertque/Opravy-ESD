@@ -172,8 +172,11 @@ Když model vrátí jiné výsledky, upravte pokyny v `prompts/intervence.md` (v
    obdélník přes chybný text (myší nebo prstem). Opravu, kterou appka nenavrhla, přidáte
    tlačítkem **Přidat ruční opravu**. Ruční úkoly (např. chybějící podpis klienta) jsou
    vypsané zvlášť jako seznam.
-4. **Stažení** – podpis se načte z Disku (když ne, vyberte ho nebo nahrajte z počítače),
-   **Vytvořit opravená PDF**, zkontrolujte náhled, stáhněte. Pak **Dokončit a smazat**.
+4. **Stažení** – podpis se načte z Disku. Když tam není, v rámečku **Podpis** klikněte na
+   **Nahrát podpis z počítače** – stačí PNG nebo JPG (i fotka podpisu na papíře): appka bílé
+   pozadí sama zprůhlední, ořízne okraje a podpis si zapamatuje v tomto prohlížeči pro další
+   intervence (jde zapomenout). Pak **Vytvořit opravená PDF**, zkontrolujte náhled, stáhněte
+   a nakonec **Dokončit a smazat**.
 
 Rozpracovaná práce se ukládá průběžně. Appku můžete zavřít a později pokračovat
 (seznam intervencí na úvodní obrazovce).
@@ -217,7 +220,7 @@ bez zásahu do kódu.
 | Body z Disku mají „Nenalezeno“ | Diagnostika → Google Disk. Zkontrolovat `disk.slozka` a že jsou materiály v té složce (i v podsložkách). |
 | „Google Disk není v appce připojený“ | Provést krok [2.2](#22-zapnutí-google-disku). |
 | Při přihlášení „Aplikace není ověřena“ | Rozšířené → Pokračovat (viz 2.2). |
-| Podpis se nenašel | Opravit `disk.podpis` (přesný název souboru), nebo podpis vybrat/nahrát ručně v kroku Stažení. Podpis má být PNG, ideálně s průhledným pozadím. |
+| Podpis se nenašel | Opravit `disk.podpis` (přesný název souboru), nebo podpis vybrat/nahrát ručně v kroku Stažení. Podpis může být PNG nebo JPG – bílé pozadí appka zprůhlední sama. |
 | U opravy „nenašlo se volné místo“ | Oprava je zakreslená vpravo i přes možné překrytí – zkontrolujte náhled, případně opravu zamítněte a přidejte ruční opravu jinam. |
 | Zašifrované PDF | Nahrát verzi bez hesla / bez zabezpečení proti úpravám. |
 | Digitálně podepsané ESD | Appka upozorní, že úpravou podpis přestane platit – rozhodnutí je na vás. |

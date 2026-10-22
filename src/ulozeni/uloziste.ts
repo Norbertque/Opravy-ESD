@@ -18,6 +18,11 @@ interface Schema extends DBSchema {
     value: { id: string; intervenceId: string; data: Blob };
     indexes: { intervenceId: string };
   };
+  /** Věci, které nepatří k jedné intervenci (zapamatovaný podpis). */
+  nastaveni: {
+    key: string;
+    value: { klic: string; data: Blob; popis: string };
+  };
 }
 
 const DEN_MS = 24 * 60 * 60 * 1000;
@@ -34,11 +39,19 @@ const ukladaniIntervenci = new Map<string, Promise<void>>();
 const kSmazani = new Map<string, Set<string>>();
 
 function db() {
-  spojeni ??= openDB<Schema>('opravy-esd', 1, {
-    upgrade(databaze) {
-      databaze.createObjectStore('intervence', { keyPath: 'id' });
-      const soubory = databaze.createObjectStore('soubory', { keyPath: 'id' });
-      soubory.createIndex('intervenceId', 'intervenceId');
+  spojeni ??= openDB<Schema>('opravy-esd', 2, {
+    upgrade(databaze, staraVerze) {
+      if (staraVerze < 1) {
+        databaze.createObjectStore('intervence', { keyPath: 'id' });
+        const soubory = databaze.createObjectStore('soubory', { keyPath: 'id' });
+        soubory.createIndex('intervenceId', 'intervenceId');
+      }
+      if (staraVerze < 2) databaze.createObjectStore('nastaveni', { keyPath: 'klic' });
+    },
+    // Novější verze appky v jiné záložce potřebuje databázi upravit – uvolnit ji.
+    blocking() {
+      void spojeni?.then((d) => d.close());
+      spojeni = null;
     },
   });
   return spojeni;
@@ -196,4 +209,19 @@ export function mimeSouboru(soubor: { name: string; type: string }) {
   if (ZNAME_MIME.has(soubor.type)) return soubor.type;
   const podlePripony = odhadniMime(soubor.name);
   return podlePripony === NEZNAMY_MIME && soubor.type ? soubor.type : podlePripony;
+}
+
+// ------------------------------------------------------------------ zapamatovaný podpis
+
+/** Podpis nahraný z počítače – zapamatuje se v tomto prohlížeči pro další intervence. */
+export async function ulozPodpis(data: Blob, popis: string) {
+  await (await db()).put('nastaveni', { klic: 'podpis', data, popis });
+}
+
+export async function nactiUlozenyPodpis() {
+  return (await db()).get('nastaveni', 'podpis');
+}
+
+export async function zapomenPodpis() {
+  await (await db()).delete('nastaveni', 'podpis');
 }
