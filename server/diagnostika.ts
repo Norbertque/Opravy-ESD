@@ -7,10 +7,16 @@
 import express from 'express';
 import type { Interactions } from '@google/genai';
 import { konfigurace } from '../konfigurace';
-import { moznostiPozadavku, prelozChybu, vytvorKlientaGemini } from './dohledani/model-gemini';
+import { moznostiPozadavku, prelozChybu as prelozChybuModelu, vytvorKlientaGemini } from './dohledani/model-gemini';
 import { aresHledej } from './nastroje/ares';
 import { diskZPozadavku } from './nastroje/vyber-disku';
 import { rezim } from './rezim';
+
+/** Česká zpráva + původní zpráva od Googlu (pomáhá při ladění v AI Studiu). */
+function prelozChybu(e: unknown) {
+  const ch = prelozChybuModelu(e);
+  return { message: ch.detail ? `${ch.message} (Google: ${ch.detail})` : ch.message, kod: ch.kod };
+}
 
 interface Kontrola {
   nazev: string;
@@ -101,7 +107,10 @@ export function routerDiagnostiky() {
         pridej({
           nazev: 'Nástroje + JSON (režim „společně“)',
           stav: konfigurace.gemini.rezimNastroju === 'spolecne' ? 'chyba' : 'varovani',
-          zprava: `${prelozChybu(e).message} Řešení: v konfigurace.ts zkuste volbaNastroju: 'auto', případně rezimNastroju: 'dvoukrokove'.`,
+          zprava:
+            prelozChybu(e).kod === 'tarif' || prelozChybu(e).kod === 'limit'
+              ? prelozChybu(e).message
+              : `${prelozChybu(e).message} Řešení: v konfigurace.ts zkuste volbaNastroju: 'auto', případně rezimNastroju: 'dvoukrokove'.`,
         });
       }
     }

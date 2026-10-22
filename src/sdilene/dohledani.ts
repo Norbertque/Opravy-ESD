@@ -59,6 +59,7 @@ export type UdalostDohledani =
 
 export type KodChyby =
   | 'limit' // 429 – přetížení nebo vyčerpaný limit
+  | 'tarif' // funkce není na tarifu klíče dostupná (např. hledání Google na free tieru)
   | 'timeout'
   | 'klic' // chybí nebo neplatný Gemini klíč
   | 'disk' // přihlášení k Disku chybí nebo vypršelo

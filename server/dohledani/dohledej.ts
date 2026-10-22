@@ -87,8 +87,23 @@ export async function dohledej(p: ParametryDohledani): Promise<VysledekDohledani
     pocet += krok.hledaniGoogle.length + krok.cteneStranky.length;
   };
 
+  /**
+   * Když hledání Google na tarifu klíče není (free tier → kvóta 0), dohledání nespadne:
+   * Google se vypne a stejný krok se zopakuje jen se smlouvou, Diskem a ARES.
+   */
+  const sNahradou = async (krokModelu: () => Promise<KrokModelu>) => {
+    try {
+      return await krokModelu();
+    } catch (chyba) {
+      if (!(chyba instanceof ChybaModelu) || chyba.kod !== 'tarif' || !nastroje.googleSearch) throw chyba;
+      nastroje.googleSearch = false;
+      prubeh('Hledání Google není na tarifu klíče dostupné (free tier) – pokračuji bez něj: smlouva, Disk a ARES.');
+      return krokModelu();
+    }
+  };
+
   prubeh('Čtu smlouvu, ESD a intervenci a rozděluji intervenci na body…');
-  let krok = await model.zacni({ system, vstup: p.vstup, nastroje, json: !dvoukrokove, signal });
+  let krok = await sNahradou(() => model.zacni({ system, vstup: p.vstup, nastroje, json: !dvoukrokove, signal }));
   hlasVestavene(krok);
 
   // Smyčka nástrojů
@@ -104,14 +119,16 @@ export async function dohledej(p: ParametryDohledani): Promise<VysledekDohledani
       vysledky.push(textovyVysledek(v, 'Limit volání nástrojů je vyčerpaný. Už nehledej a odpověz z toho, co víš.'));
     const vycerpano = pocet >= max;
     if (vycerpano) prubeh('Limit hledání je vyčerpaný – sestavuji výsledek z toho, co se našlo.');
-    krok = await model.pokracuj({
-      predchozi: krok.id,
-      vysledky,
-      nastroje,
-      json: !dvoukrokove || vycerpano,
-      bezNastroju: vycerpano,
-      signal,
-    });
+    krok = await sNahradou(() =>
+      model.pokracuj({
+        predchozi: krok.id,
+        vysledky,
+        nastroje,
+        json: !dvoukrokove || vycerpano,
+        bezNastroju: vycerpano,
+        signal,
+      }),
+    );
     hlasVestavene(krok);
     if (vycerpano && krok.volani.length > 0) throw new ChybaModelu('model', HLASKY.model);
   }
@@ -119,27 +136,31 @@ export async function dohledej(p: ParametryDohledani): Promise<VysledekDohledani
   // Dvoukrokový režim: teprve teď si řekneme o JSON.
   if (dvoukrokove && !jeJson(krok.text)) {
     prubeh('Sestavuji výsledek…');
-    krok = await model.pokracuj({
-      predchozi: krok.id,
-      pokyn: 'Teď sestav výsledek všech bodů intervence jako JSON podle zadaného schématu. Nic dalšího nehledej.',
-      nastroje,
-      json: true,
-      bezNastroju: true,
-      signal,
-    });
+    krok = await sNahradou(() =>
+      model.pokracuj({
+        predchozi: krok.id,
+        pokyn: 'Teď sestav výsledek všech bodů intervence jako JSON podle zadaného schématu. Nic dalšího nehledej.',
+        nastroje,
+        json: true,
+        bezNastroju: true,
+        signal,
+      }),
+    );
   }
 
   prubeh('Kontroluji výsledek…');
   let data = zkusJson(krok.text);
   if (data === undefined) {
-    krok = await model.pokracuj({
-      predchozi: krok.id,
-      pokyn: 'Tvoje odpověď nebyla platný JSON. Pošli výsledek znovu, tentokrát pouze jako platný JSON podle schématu.',
-      nastroje,
-      json: true,
-      bezNastroju: true,
-      signal,
-    });
+    krok = await sNahradou(() =>
+      model.pokracuj({
+        predchozi: krok.id,
+        pokyn: 'Tvoje odpověď nebyla platný JSON. Pošli výsledek znovu, tentokrát pouze jako platný JSON podle schématu.',
+        nastroje,
+        json: true,
+        bezNastroju: true,
+        signal,
+      }),
+    );
     data = zkusJson(krok.text);
   }
   if (data === undefined) throw new ChybaModelu('model', HLASKY.model);

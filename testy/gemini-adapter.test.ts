@@ -113,6 +113,22 @@ describe('adaptér Gemini (Interactions API)', () => {
     expect(zaznam.length).toBe(3); // 1 pokus + 2 opakování
   });
 
+  it('kvótu 0 (funkce není na free tieru) přeloží na kód tarif s detailem od Googlu', async () => {
+    obsluha = (_t, res) =>
+      json(res, 429, {
+        error: {
+          code: 429,
+          message: 'You exceeded your current quota. Quota exceeded for metric: generativelanguage.googleapis.com/search_grounding_free_tier, limit: 0',
+          status: 'RESOURCE_EXHAUSTED',
+          details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'SearchGroundingFreeTier', quotaValue: '0' }] }],
+        },
+      });
+    const chyba = await dohledej({ ...parametry(), prubeh: () => {} }).catch((e) => e);
+    expect(chyba.kod).toBe('tarif');
+    expect(chyba.message).toContain('free tieru');
+    expect(chyba.detail).toContain('limit: 0');
+  });
+
   it('chybu 400 přeloží na kód model se zprávou od Gemini', async () => {
     obsluha = (_t, res) => json(res, 400, { error: { code: 400, message: 'tool_choice auto is not supported', status: 'INVALID_ARGUMENT' } });
     const chyba = await dohledej({ ...parametry(), prubeh: () => {} }).catch((e) => e);
@@ -125,5 +141,22 @@ describe('adaptér Gemini (Interactions API)', () => {
       json(res, 400, { error: { code: 400, message: 'API key not valid', status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } });
     const chyba = await dohledej({ ...parametry(), prubeh: () => {} }).catch((e) => e);
     expect(chyba.kod).toBe('klic');
+  });
+});
+
+describe('dohledání na free tieru', () => {
+  it('když hledání Google na tarifu není, pokračuje bez něj', async () => {
+    zaznam.length = 0;
+    obsluha = (telo, res) => {
+      const sGooglem = (telo.tools ?? []).some((t: { type: string }) => t.type === 'google_search');
+      if (sGooglem) return json(res, 429, { error: { code: 429, message: 'Quota exceeded for metric: search_grounding, limit: 0', status: 'RESOURCE_EXHAUSTED' } });
+      return json(res, 200, { id: 'i9', status: 'completed', steps: [{ type: 'model_output', content: [{ type: 'text', text: JSON.stringify(VYSLEDEK) }] }] });
+    };
+    const prubeh: string[] = [];
+    const vysledek = await dohledej({ ...parametry(), prubeh: (t) => prubeh.push(t) });
+    expect(vysledek.body).toHaveLength(1);
+    expect(prubeh.some((t) => t.includes('pokračuji bez něj'))).toBe(true);
+    const posledni = zaznam[zaznam.length - 1].telo;
+    expect(posledni.tools.some((t: { type: string }) => t.type === 'google_search')).toBe(false);
   });
 });

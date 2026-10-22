@@ -187,18 +187,35 @@ export function prelozChybu(chyba: unknown, signal?: AbortSignal): ChybaModelu {
   if (chyba instanceof ChybaModelu) return chyba;
   if (signal?.aborted && !(signal.reason instanceof DOMException && signal.reason.name === 'TimeoutError'))
     return new ChybaModelu('jina', 'Dohledání bylo zrušeno.');
-  const e = chyba as Error & { status?: unknown; error?: { error?: { message?: string; details?: { reason?: string }[] } } };
+  type Detail = { reason?: string; violations?: { quotaId?: string; quotaValue?: string }[] };
+  type Telo = { error?: { message?: string; details?: Detail[] } };
+  const e = chyba as Error & { status?: unknown; error?: Telo };
   const status = chyba instanceof ApiError ? chyba.status : typeof e?.status === 'number' ? e.status : undefined;
+  // Interactions API: rozparsované tělo v e.error; Files API: tělo jako JSON v textu chyby
+  let telo: Telo | undefined = e?.error;
+  if (!telo?.error && chyba instanceof ApiError) {
+    try {
+      telo = JSON.parse(chyba.message) as Telo;
+    } catch {
+      telo = undefined;
+    }
+  }
+  const zpravaGooglu = telo?.error?.message;
+  const detail = status || zpravaGooglu ? `${status ?? ''} ${zpravaGooglu ?? ''}`.trim().slice(0, 400) : undefined;
   const nazev = e?.name ?? typeof chyba;
   console.warn('Gemini: chyba', nazev, status ?? '');
-  const duvody = (e?.error?.error?.details ?? []).map((d) => d.reason);
-  if (status === 429) return new ChybaModelu('limit', HLASKY.limit);
-  if (status === 401 || status === 403 || duvody.includes('API_KEY_INVALID')) return new ChybaModelu('klic', HLASKY.klic);
-  if (status === 400 || status === 422) {
-    const zprava = e?.error?.error?.message;
-    return new ChybaModelu('model', zprava ? `Gemini dotaz odmítlo: ${zprava}` : HLASKY.model);
+  const podrobnosti = telo?.error?.details ?? [];
+  const duvody = podrobnosti.map((d) => d.reason);
+  if (status === 429) {
+    // Kvóta 0 = funkce na tomto tarifu vůbec není (typicky hledání Google na free tieru).
+    const kvotaNula =
+      /limit:\s*0\b/.test(zpravaGooglu ?? '') || podrobnosti.some((d) => d.violations?.some((v) => v.quotaValue === '0'));
+    return kvotaNula ? new ChybaModelu('tarif', HLASKY.tarif, detail) : new ChybaModelu('limit', HLASKY.limit, detail);
   }
+  if (status === 401 || status === 403 || duvody.includes('API_KEY_INVALID')) return new ChybaModelu('klic', HLASKY.klic, detail);
+  if (status === 400 || status === 422)
+    return new ChybaModelu('model', zpravaGooglu ? `Gemini dotaz odmítlo: ${zpravaGooglu}` : HLASKY.model, detail);
   if (status === 408 || status === 504 || nazev === 'APIConnectionTimeoutError' || nazev === 'TimeoutError' || nazev === 'AbortError')
-    return new ChybaModelu('timeout', HLASKY.timeout);
-  return new ChybaModelu('jina', HLASKY.jina);
+    return new ChybaModelu('timeout', HLASKY.timeout, detail);
+  return new ChybaModelu('jina', HLASKY.jina, detail);
 }

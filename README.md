@@ -211,6 +211,7 @@ bez zásahu do kódu.
 | Problém | Co udělat |
 |---|---|
 | „Gemini je teď přetížené nebo byl vyčerpán limit dotazů“ | Počkat chvíli a **Zkusit znovu**. Na free tieru jsou limity nízké. |
+| Diagnostika: „Tahle funkce Gemini (např. hledání Google) není na tarifu klíče dostupná“ | Klíč je na **free tieru** – tam hledání Google u modelů Gemini 3 není. Zapněte placený tier (bod 2.3). Do té doby dohledání funguje bez internetu (smlouva, Disk, ARES) a v průběhu na to upozorní. |
 | „Gemini nejde použít: chybí nebo je neplatný klíč“ | V AI Studiu **Nastavení → Secrets** zkontrolovat `GEMINI_API_KEY`. |
 | „Gemini dotaz odmítlo: … tool_choice …“ nebo kontrola *Nástroje + JSON* je červená | V `konfigurace.ts` nastavit `gemini.volbaNastroju: 'auto'`; když to nepomůže, `gemini.rezimNastroju: 'dvoukrokove'` (hledání a sestavení výsledku ve dvou krocích). |
 | Body z Disku mají „Nenalezeno“ | Diagnostika → Google Disk. Zkontrolovat `disk.slozka` a že jsou materiály v té složce (i v podsložkách). |

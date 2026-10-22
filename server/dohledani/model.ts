@@ -74,6 +74,8 @@ export class ChybaModelu extends Error {
   constructor(
     readonly kod: KodChyby,
     zprava: string,
+    /** Původní zpráva od Googlu (bez obsahu dokumentů) – pro diagnostiku. */
+    readonly detail?: string,
   ) {
     super(zprava);
     this.name = 'ChybaModelu';
@@ -82,6 +84,8 @@ export class ChybaModelu extends Error {
 
 export const HLASKY = {
   limit: 'Gemini je teď přetížené nebo byl vyčerpán limit dotazů. Počkejte chvíli a zkuste to znovu.',
+  tarif:
+    'Tahle funkce Gemini (např. hledání Google) není na tarifu klíče dostupná – klíč je nejspíš na free tieru. Zapněte placený tier (README, bod 2.3), nebo v konfigurace.ts vypněte internet.googleSearch.',
   timeout: 'Gemini odpovídalo příliš dlouho. Zkuste to znovu.',
   klic: 'Gemini nejde použít: chybí nebo je neplatný klíč (GEMINI_API_KEY). V AI Studiu ho zkontrolujte v Nastavení → Secrets.',
   model: 'Gemini vrátilo odpověď, se kterou appka neumí pracovat. Zkuste to znovu.',
