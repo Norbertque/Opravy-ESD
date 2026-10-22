@@ -34,7 +34,7 @@ const OPAKOVANI: RetryConfig = {
   backoff: { initialInterval: 1_000, maxInterval: 8_000, exponent: 2 },
 };
 
-function moznostiPozadavku(signal: AbortSignal): GoogleGenAIRequestOptions {
+export function moznostiPozadavku(signal: AbortSignal): GoogleGenAIRequestOptions {
   return {
     signal: AbortSignal.any([signal, AbortSignal.timeout(konfigurace.gemini.timeoutMs)]),
     retries: OPAKOVANI,
@@ -42,12 +42,16 @@ function moznostiPozadavku(signal: AbortSignal): GoogleGenAIRequestOptions {
   };
 }
 
-/** `adresaApi` jen pro testy (lokální falešný server). */
-export function modelGemini(klic: string, adresaApi?: string): ModelKlient {
-  const ai = new GoogleGenAI({
+/** Klient Gemini s hlavičkou pro AI Studio. `adresaApi` jen pro testy (lokální falešný server). */
+export function vytvorKlientaGemini(klic: string, adresaApi?: string) {
+  return new GoogleGenAI({
     apiKey: klic,
     httpOptions: { headers: { 'User-Agent': 'aistudio-build' }, fetch: fetchSUserAgentem, ...(adresaApi ? { baseUrl: adresaApi } : {}) },
   });
+}
+
+export function modelGemini(klic: string, adresaApi?: string): ModelKlient {
+  const ai = vytvorKlientaGemini(klic, adresaApi);
   const model = konfigurace.gemini.model;
   let system = '';
 
@@ -179,7 +183,7 @@ function naKrok(i: GoogleGenAIInteraction): KrokModelu {
 }
 
 /** Chyba SDK → česká chyba s kódem. Do logu jde jen druh chyby. */
-function prelozChybu(chyba: unknown, signal?: AbortSignal): ChybaModelu {
+export function prelozChybu(chyba: unknown, signal?: AbortSignal): ChybaModelu {
   if (chyba instanceof ChybaModelu) return chyba;
   if (signal?.aborted && !(signal.reason instanceof DOMException && signal.reason.name === 'TimeoutError'))
     return new ChybaModelu('jina', 'Dohledání bylo zrušeno.');

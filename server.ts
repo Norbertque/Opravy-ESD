@@ -21,14 +21,14 @@ async function startServer() {
 
   // Data pro pdf.js (znakové sady, standardní písma, dekodéry obrázků) – servírují se přímo z balíčku.
   for (const slozka of ['cmaps', 'standard_fonts', 'wasm']) {
-    app.use(`/pdfjs/${slozka}`, express.static(path.join(__dirname, 'node_modules/pdfjs-dist', slozka), { maxAge: '7d' }));
+    app.use(`/pdfjs/${slozka}`, express.static(path.join(__dirname, 'node_modules/pdfjs-dist', slozka), { maxAge: '7d', fallthrough: false }));
   }
 
   // OCR (tesseract.js): worker, jádro a česká jazyková data – také přímo z balíčků.
   const zBalicku = (cesta: string) => path.join(__dirname, 'node_modules', cesta);
   app.get('/tesseract/worker.min.js', (_req, res) => res.sendFile(zBalicku('tesseract.js/dist/worker.min.js')));
-  app.use('/tesseract/core', express.static(zBalicku('tesseract.js-core'), { maxAge: '7d' }));
-  app.use('/tesseract/lang', express.static(zBalicku('@tesseract.js-data/ces/4.0.0_best_int'), { maxAge: '7d' }));
+  app.use('/tesseract/core', express.static(zBalicku('tesseract.js-core'), { maxAge: '7d', fallthrough: false }));
+  app.use('/tesseract/lang', express.static(zBalicku('@tesseract.js-data/ces/4.0.0_best_int'), { maxAge: '7d', fallthrough: false }));
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');

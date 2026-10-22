@@ -81,8 +81,9 @@ export function NahledPdf({ data, prejitNa, prekryv, onKlik, kurzor }: Props) {
   }, []);
 
   const nejsirsi = useMemo(() => Math.max(1, ...rozmery.map((r) => r.sirka)), [rozmery]);
+  // Dokud nejsou známé rozměry stránek, „na šířku" nejde spočítat – zatím 100 %.
   const skutecneMeritko =
-    meritko === 'sirka' ? Math.max(MIN_MERITKO, (sirkaOkna - 32) / nejsirsi) : meritko;
+    meritko !== 'sirka' ? meritko : rozmery.length ? Math.min(MAX_MERITKO, Math.max(MIN_MERITKO, (sirkaOkna - 32) / nejsirsi)) : 1;
 
   // Přechod na stranu
   useEffect(() => {
@@ -120,7 +121,7 @@ export function NahledPdf({ data, prejitNa, prekryv, onKlik, kurzor }: Props) {
         <button className="tlacitko-ikona" onClick={() => zmenMeritko(1 / 1.2)} title="Zmenšit" aria-label="Zmenšit">
           <Minus size={18} />
         </button>
-        <span className="w-14 text-center tabular-nums">{Math.round(skutecneMeritko * 100)} %</span>
+        <span className="w-14 text-center tabular-nums">{rozmery.length ? `${Math.round(skutecneMeritko * 100)} %` : ''}</span>
         <button className="tlacitko-ikona" onClick={() => zmenMeritko(1.2)} title="Zvětšit" aria-label="Zvětšit">
           <Plus size={18} />
         </button>

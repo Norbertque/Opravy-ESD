@@ -1,6 +1,7 @@
 import { FlaskConical, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DetailIntervence } from './obrazovky/DetailIntervence';
+import { Diagnostika } from './obrazovky/Diagnostika';
 import { SeznamIntervenci } from './obrazovky/SeznamIntervenci';
 import { useCesta } from './cesta';
 
@@ -34,6 +35,9 @@ export function App() {
           Opravy ESD
         </a>
         <span className="hidden text-sm text-slate-500 sm:inline">vyřízení intervencí ke smluvní dokumentaci</span>
+        <a href="#/diagnostika" className="ml-auto inline-flex min-h-11 items-center px-2 text-sm text-slate-600 hover:text-blue-800">
+          Diagnostika
+        </a>
       </header>
       {stav === 'nezjisteno' && (
         <div className="flex items-center gap-2 border-b border-red-300 bg-red-100 px-4 py-1.5 text-sm text-red-900" role="alert">
@@ -54,7 +58,9 @@ export function App() {
         </div>
       )}
       <main className="min-h-0 flex-1">
-        {cesta.obrazovka === 'intervence' ? <DetailIntervence key={cesta.id} id={cesta.id} /> : <SeznamIntervenci />}
+        {cesta.obrazovka === 'intervence' && <DetailIntervence key={cesta.id} id={cesta.id} />}
+        {cesta.obrazovka === 'diagnostika' && <Diagnostika />}
+        {cesta.obrazovka === 'seznam' && <SeznamIntervenci />}
       </main>
     </div>
   );

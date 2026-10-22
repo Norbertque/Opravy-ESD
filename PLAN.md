@@ -1,6 +1,6 @@
 # Plán – appka „Opravy ESD"
 
-Appka pomáhá vyřídit intervenci k smluvní dokumentaci (ESD). Uživatel nahraje smlouvu, ESD a intervenci. Appka rozdělí intervenci na body, ke každému dohledá správný údaj, nechá ho schválit a do kopie ESD opravu zakreslí: škrtne chybný text, vedle napíše opravu a připojí podpis. Sama chyby nehledá, řeší jen to, co je v intervenci.
+Appka pomáhá vyřídit intervenci ke smluvní dokumentaci (ESD). Uživatel nahraje smlouvu, ESD a intervenci. Appka rozdělí intervenci na body, ke každému dohledá správný údaj, nechá ho schválit a do kopie ESD opravu zakreslí: škrtne chybný text, vedle napíše opravu a připojí podpis. Sama chyby nehledá, řeší jen to, co je v intervenci.
 
 Kód píšeme tady. Kolega si appku naimportuje z GitHubu do **svého** Google AI Studia a tam se doladí. Gemini klíč i přihlášení na Disk zajistí jeho účet.
 
@@ -37,6 +37,19 @@ Kód píšeme tady. Kolega si appku naimportuje z GitHubu do **svého** Google A
 Pro každý bod: `bod_intervence` (doslova), `typ` (oprava / doplneni / rucne), `vyskyty[]` (každý: `soubor`, `strana` od 1, `presny_text`, `kontext_pred`, `kontext_za`), `oprava`, `zdroj_typ` (smlouva / disk / web), `zdroj_odkaz`, `zdroj_strana` (strana smlouvy, je-li zdrojem smlouva), `konflikt` (ano/ne), `zduvodneni` (u nenalezeného údaje i kde se hledalo), `jistota` (vysoka / stredni / nizka).
 
 U doplnění je `presny_text` text, za který se dopisuje.
+
+## Stav (22. 10. 2026)
+
+Všech šest kroků je hotových, automatické testy procházejí (jednotkové i v prohlížeči
+po krocích 1–5 v okně 1280×600). Zbývá ověření se skutečným Gemini a Diskem v AI Studiu
+podle checklistu v README (lokálně není Gemini klíč).
+
+Oproti původnímu plánu navíc:
+- `/api/diagnostika` + stránka Diagnostika (klíč, model, Google Search, kombinace nástrojů, Disk, podpis, ARES),
+- OCR (tesseract.js), pdf.js data i písmo servíruje vlastní server – appka nepotřebuje cizí CDN,
+- na skenu se hledá přibližně (bez diakritiky, záměny o/0 a l/1, 1 překlep na 7 znaků),
+- poloha škrtu se zpřesňuje podle vyrenderované stránky (pdf.js neudává šířky jednotlivých znaků),
+- testovací režim (`MOCK_GEMINI`, `MOCK_DISK`) na ostrém serveru (Cloud Run / produkce) nejde zapnout.
 
 ## Kroky
 

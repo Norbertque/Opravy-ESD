@@ -1,10 +1,9 @@
-import JSZip from 'jszip';
 import { AlertTriangle, ChevronLeft, Download, Eye, FileArchive, FileCheck2, Loader2, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { konfigurace } from '../../konfigurace';
 import { jdiNa } from '../cesta';
 import { PRIHLASENI_NAPOJENO, tokenDisku } from '../disk/prihlaseni';
-import { zakresliOpravy, type OpravaKZakresleni, type ZpravaOprave } from '../export/kresleni';
+import type { OpravaKZakresleni, ZpravaOprave } from '../export/kresleni';
 import { NahledPdf } from '../komponenty/NahledPdf';
 import { bezPripony, sklonuj } from '../pomocne';
 import { jeUmisteno } from '../schvalovani/umisteni';
@@ -137,6 +136,7 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
         setPracuji(`Zakresluji opravy do „${soubor.nazev}“…`);
         const blob = await nactiSoubor(soubor.id);
         if (!blob) throw new Error(`Soubor „${soubor.nazev}“ chybí v úložišti prohlížeče.`);
+        const { zakresliOpravy } = await import('../export/kresleni');
         const { data, zpravy } = await zakresliOpravy(await blob.arrayBuffer(), opravy, podpis?.data ?? null);
         hotove.push({ soubor, nazev: `${bezPripony(soubor.nazev)}${konfigurace.vystup.priponaSouboru}.pdf`, data, zpravy });
       }
@@ -151,6 +151,7 @@ export function KrokExport({ intervence, prejdiNa }: KrokProps) {
 
   const stahniZip = async () => {
     if (!vystupy) return;
+    const { default: JSZip } = await import('jszip');
     const zip = new JSZip();
     for (const v of vystupy) zip.file(v.nazev, v.data);
     const datum = new Date().toISOString().slice(0, 10);

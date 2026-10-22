@@ -11,6 +11,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test": "vitest run",
+    "test:prohlizec": "tsx testy/e2e/krok1-nahrani.ts && tsx testy/e2e/krok2-dohledani.ts && tsx testy/e2e/krok3-schvalovani.ts && tsx testy/e2e/krok4-export.ts && tsx testy/e2e/krok5-ocr.ts",
     "testovaci-data": "tsx scripts/testovaci-data.ts"
   },
   "dependencies": {

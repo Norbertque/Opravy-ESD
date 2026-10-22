@@ -3,7 +3,6 @@
  * Když model uvede špatnou stranu, hledá se i na ostatních stranách téhož souboru.
  */
 import { jednoznacnaShoda, najdiText, type PolozkaTextu, type Shoda, type Usek } from '../pdf/hledani';
-import { rozpoznejStranu } from '../pdf/ocr';
 import { otevriPdf, zavriPdf, type PdfDokument } from '../pdf/pdfjs';
 import type { Vyskyt } from '../sdilene/dohledani';
 import type { SouborInfo } from '../ulozeni/typy';
@@ -65,6 +64,8 @@ export class DokumentyEsd {
         const s = await doc.getPage(strana);
         if (this.jeSken(soubor, strana)) {
           this.onOcr?.(soubor, strana);
+          // OCR (tesseract.js) se načte až když je potřeba – je velké.
+          const { rozpoznejStranu } = await import('../pdf/ocr');
           return rozpoznejStranu(s);
         }
         const obsah = await s.getTextContent();
