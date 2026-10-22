@@ -38,6 +38,12 @@ export interface Usek {
   zacatekSlova?: boolean;
   /** Za úsekem je mezera nebo konec řádku (konec jde zpřesnit podle obrazu). */
   konecSlova?: boolean;
+  /** Znaky těsně před úsekem až k mezeře (např. „(") a první slovo úseku – pro zpřesnění začátku. */
+  pred?: string;
+  prvniSlovo?: string;
+  /** Poslední slovo úseku a znaky těsně za ním až k mezeře (např. „,") – pro zpřesnění konce. */
+  posledniSlovo?: string;
+  za?: string;
 }
 
 export interface Shoda {
@@ -54,6 +60,29 @@ export type MeritkoTextu = (text: string, polozka: PolozkaTextu) => number;
 
 /** Bez znalosti písma: šířka úměrná počtu znaků. */
 export const meritkoPodleZnaku: MeritkoTextu = (text) => text.length;
+
+/**
+ * Odhad šířky podle tvaru znaků (typické proporcionální bezpatkové písmo, v tisícinách em).
+ * Přesnější než počet znaků: čárka nebo „i" jsou úzké, „m" nebo „W" široké.
+ * Písmena s diakritikou mají šířku základního písmene.
+ */
+const SIRKY: Record<string, number> = {
+  ' ': 278, ',': 278, '.': 278, ':': 278, ';': 278, '-': 333, '/': 278, '(': 333, ')': 333, "'": 191, '"': 355,
+  '„': 333, '“': 333, '–': 556, '—': 1000, '+': 584, '%': 889, '&': 667, '@': 1015, '!': 278, '?': 556, '*': 389,
+  a: 556, b: 556, c: 500, d: 556, e: 556, f: 278, g: 556, h: 556, i: 222, j: 222, k: 500, l: 222, m: 833,
+  n: 556, o: 556, p: 556, q: 556, r: 333, s: 500, t: 278, u: 556, v: 500, w: 722, x: 500, y: 500, z: 500,
+  A: 667, B: 667, C: 722, D: 722, E: 667, F: 611, G: 778, H: 722, I: 278, J: 500, K: 667, L: 556, M: 833,
+  N: 722, O: 778, P: 667, Q: 778, R: 722, S: 667, T: 611, U: 722, V: 667, W: 944, X: 667, Y: 667, Z: 611,
+};
+export function sirkaPodleTvaru(text: string) {
+  let soucet = 0;
+  for (const znak of text) {
+    const zaklad = /[0-9]/.test(znak) ? '0' : znak.normalize('NFD')[0];
+    soucet += zaklad === '0' ? 556 : MEZERY.test(znak) ? 278 : (SIRKY[zaklad] ?? 556);
+  }
+  return soucet;
+}
+export const meritkoPodleTvaru: MeritkoTextu = (text) => sirkaPodleTvaru(text);
 
 // ------------------------------------------------------------------ zjednodušení textu
 
@@ -171,7 +200,7 @@ export function najdiText(
   polozky: PolozkaTextu[],
   hledany: string,
   kontext: { pred?: string; za?: string } = {},
-  meritko: MeritkoTextu = meritkoPodleZnaku,
+  meritko: MeritkoTextu = meritkoPodleTvaru,
 ): Shoda[] {
   const jehla = zjednodus(hledany);
   if (!jehla) return [];
@@ -209,10 +238,17 @@ export function jednoznacnaShoda(shody: Shoda[]): Shoda | null {
 /** U víceřádkové shody začínají a končí vnitřní úseky na kraji řádku. */
 function oznacHraniceSlov(useky: Usek[], surovy: string, od: number, doZnaku: number): Usek[] {
   const mezera = (z: string | undefined) => z === undefined || MEZERY.test(z) || z === '\n';
+  const text = surovy.slice(od, doZnaku);
+  let zac = od;
+  while (zac > 0 && od - zac < 12 && !mezera(surovy[zac - 1])) zac--;
+  let kon = doZnaku;
+  while (kon < surovy.length && kon - doZnaku < 12 && !mezera(surovy[kon])) kon++;
   return useky.map((u, i) => ({
     ...u,
     zacatekSlova: i > 0 || mezera(surovy[od - 1]),
     konecSlova: i < useky.length - 1 || mezera(surovy[doZnaku]),
+    ...(i === 0 ? { pred: surovy.slice(zac, od), prvniSlovo: text.split(/[\s\n]/)[0] } : {}),
+    ...(i === useky.length - 1 ? { za: surovy.slice(doZnaku, kon), posledniSlovo: text.split(/[\s\n]/).pop() } : {}),
   }));
 }
 

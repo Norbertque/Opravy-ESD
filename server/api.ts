@@ -1,6 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { konfigurace } from '../konfigurace';
 import { routerDohledani } from './dohledani/route';
+import { routerPodpisu } from './podpis';
 import { rezim } from './rezim';
 
 /**
@@ -22,6 +23,7 @@ export function vytvorApi() {
   });
 
   api.use(routerDohledani());
+  api.use(routerPodpisu());
 
   api.use((_req, res) => {
     res.status(404).json({ chyba: 'Neznámá adresa API.' });
